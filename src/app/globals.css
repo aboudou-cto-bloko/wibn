@@ -1,26 +1,125 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+    /* Fonts */
+    --font-sans: var(--font-inter);
+    --font-mono: var(--font-jetbrains-mono);
+
+    /* Dark theme colors - Luxurious black & grays */
+    --color-background: oklch(0.12 0 0); /* Rich black */
+    --color-foreground: oklch(0.98 0 0); /* Pure white */
+
+    --color-card: oklch(0.15 0 0); /* Slightly lighter black */
+    --color-card-foreground: oklch(0.98 0 0);
+
+    --color-popover: oklch(0.14 0 0);
+    --color-popover-foreground: oklch(0.98 0 0);
+
+    --color-primary: oklch(0.85 0.15 275); /* Luxe purple */
+    --color-primary-foreground: oklch(0.12 0 0);
+
+    --color-secondary: oklch(0.2 0 0); /* Dark gray */
+    --color-secondary-foreground: oklch(0.98 0 0);
+
+    --color-muted: oklch(0.18 0 0);
+    --color-muted-foreground: oklch(0.6 0 0); /* Mid gray */
+
+    --color-accent: oklch(0.22 0 0);
+    --color-accent-foreground: oklch(0.98 0 0);
+
+    --color-destructive: oklch(0.6 0.2 25); /* Elegant red */
+    --color-destructive-foreground: oklch(0.98 0 0);
+
+    --color-border: oklch(0.22 0 0);
+    --color-input: oklch(0.22 0 0);
+    --color-ring: oklch(0.85 0.15 275);
+
+    /* Chart colors - Elegant palette */
+    --color-chart-1: oklch(0.7 0.18 275); /* Purple */
+    --color-chart-2: oklch(0.65 0.15 200); /* Blue */
+    --color-chart-3: oklch(0.7 0.15 150); /* Cyan */
+    --color-chart-4: oklch(0.75 0.18 85); /* Yellow */
+    --color-chart-5: oklch(0.65 0.2 25); /* Red */
+
+    /* Sidebar */
+    --color-sidebar: oklch(0.13 0 0);
+    --color-sidebar-foreground: oklch(0.85 0 0);
+    --color-sidebar-primary: oklch(0.85 0.15 275);
+    --color-sidebar-primary-foreground: oklch(0.12 0 0);
+    --color-sidebar-accent: oklch(0.18 0 0);
+    --color-sidebar-accent-foreground: oklch(0.98 0 0);
+    --color-sidebar-border: oklch(0.2 0 0);
+    --color-sidebar-ring: oklch(0.85 0.15 275);
+
+    /* Border radius */
+    --radius-sm: 0.375rem;
+    --radius-md: 0.5rem;
+    --radius-lg: 0.75rem;
+    --radius-xl: 1rem;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+@layer base {
+    * {
+        @apply border-border;
+    }
+
+    body {
+        @apply bg-background text-foreground;
+        font-feature-settings:
+            "rlig" 1,
+            "calt" 1;
+    }
+
+    /* Smooth scrolling */
+    html {
+        scroll-behavior: smooth;
+    }
+
+    /* Custom scrollbar */
+    ::-webkit-scrollbar {
+        width: 8px;
+        height: 8px;
+    }
+
+    ::-webkit-scrollbar-track {
+        background: oklch(0.15 0 0);
+    }
+
+    ::-webkit-scrollbar-thumb {
+        background: oklch(0.3 0 0);
+        border-radius: 4px;
+    }
+
+    ::-webkit-scrollbar-thumb:hover {
+        background: oklch(0.4 0 0);
+    }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+/* Animations */
+@keyframes slide-in {
+    from {
+        transform: translateX(-100%);
+        opacity: 0;
+    }
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
+
+@keyframes fade-in {
+    from {
+        opacity: 0;
+    }
+    to {
+        opacity: 1;
+    }
+}
+
+.animate-slide-in {
+    animation: slide-in 0.3s ease-out;
+}
+
+.animate-fade-in {
+    animation: fade-in 0.2s ease-out;
 }
