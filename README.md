@@ -297,10 +297,4 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## 📧 Contact
 
-Franck ZINSOU - [@yourtwitter](https://twitter.com/yourtwitter)
-
-Project Link: [https://github.com/yourusername/wibn](https://github.com/yourusername/wibn)
-
----
-
-**Built with ❤️ in Benin**
+Franck ZINSOU - [aboudouzinsou@yahoo.com]
