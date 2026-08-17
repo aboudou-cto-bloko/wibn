@@ -1,11 +1,6 @@
 import { db } from "@/lib/db/index";
 import { scrapingCategories } from "@/lib/db/schema";
 import { nanoid } from "nanoid";
-import { config } from "dotenv";
-import { resolve } from "path";
-import { sql } from "drizzle-orm";
-
-config({ path: resolve(process.cwd(), ".env.local") });
 
 const DEFAULT_CATEGORIES = [
   {
@@ -80,30 +75,27 @@ const DEFAULT_CATEGORIES = [
 export async function seedCategories() {
   console.log("Seeding default categories...");
 
-  // Premièrement, vérifions combien de catégories sont déjà présentes
-  const existingCount = await db.select().from(scrapingCategories);
-  console.log(
-    `Il y a actuellement ${existingCount.length} catégories dans la table.`,
-  );
+  // "id" est un nanoid généré à chaque exécution : onConflictDoNothing() sur
+  // la clé primaire ne peut donc jamais matcher un run précédent. On dédoublonne
+  // ici par "name" (la vraie clé d'idempotence) avant d'insérer.
+  const existing = await db.select().from(scrapingCategories);
+  console.log(`Il y a actuellement ${existing.length} catégories dans la table.`);
+  const existingNames = new Set(existing.map((c) => c.name));
 
   let inserted = 0;
   let skipped = 0;
 
   for (const category of DEFAULT_CATEGORIES) {
+    if (existingNames.has(category.name)) {
+      skipped++;
+      console.log(`Ignoré (déjà présent) : ${category.name}`);
+      continue;
+    }
+
     try {
-      // Tentative d'insertion
-      const result = await db
-        .insert(scrapingCategories)
-        .values(category)
-        .onConflictDoNothing()
-        .returning();
-      if (result.length > 0) {
-        inserted++;
-        console.log(`Insertion réussie pour : ${category.name}`);
-      } else {
-        skipped++;
-        console.log(`Ignoré (déjà présent) : ${category.name}`);
-      }
+      await db.insert(scrapingCategories).values(category);
+      inserted++;
+      console.log(`Insertion réussie pour : ${category.name}`);
     } catch (error) {
       console.error(`Erreur lors de l'insertion de ${category.name}:`, error);
     }

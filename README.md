@@ -8,6 +8,37 @@
 
 ![WIBN Dashboard](https://placehold.co/1200x600/1a1a2e/ffffff?text=WIBN+Dashboard)
 
+## 🐳 Lancer en local avec Docker (recommandé)
+
+Aucune dépendance à installer à part Docker : Postgres, l'app et le serveur
+Inngest tournent chacun dans leur conteneur.
+
+```bash
+cp .env.example .env
+# Édite .env : au minimum GROQ_API_KEY, BETTER_AUTH_SECRET, ADMIN_PASSWORD
+
+docker compose up -d --build
+```
+
+- App : http://localhost:3001
+- Connexion : http://localhost:3001/sign-in avec `ADMIN_EMAIL` / `ADMIN_PASSWORD` de `.env`
+- Dashboard Inngest (jobs de scraping/clustering/génération) : http://localhost:8288
+- Postgres exposé sur le host en `5433` (évite un conflit avec un Postgres local existant) : `postgresql://wibn:wibn@localhost:5433/wibn`
+
+Au démarrage, le conteneur `app` applique automatiquement les migrations
+Drizzle, seed les catégories Reddit par défaut, et crée le premier compte
+admin (idempotent — sûr à relancer). Logs :
+
+```bash
+docker compose logs -f app
+```
+
+Pour tout réinitialiser (⚠️ supprime les données Postgres) :
+
+```bash
+docker compose down -v
+```
+
 ## 🚀 Features
 
 - **Reddit Scraping**: Automatically collect pain points from 30+ subreddits

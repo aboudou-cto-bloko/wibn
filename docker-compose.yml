@@ -1,0 +1,47 @@
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: wibn
+      POSTGRES_PASSWORD: wibn
+      POSTGRES_DB: wibn
+    volumes:
+      - wibn_pgdata:/var/lib/postgresql/data
+    ports:
+      - "5433:5432" # host:5433 pour ne pas entrer en conflit avec un Postgres local existant
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U wibn -d wibn"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  app:
+    build: .
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: "postgresql://wibn:wibn@db:5432/wibn"
+      NODE_ENV: production
+      # Le SDK Inngest se base sur NODE_ENV pour choisir entre mode dev (serveur
+      # local) et mode cloud (enregistrement sur api.inngest.com). On force le
+      # mode dev vers le conteneur "inngest" du compose, peu importe NODE_ENV.
+      INNGEST_DEV: "http://inngest:8288"
+    ports:
+      - "3001:3001"
+
+  inngest:
+    image: inngest/inngest:latest
+    command: ["inngest", "dev", "-u", "http://app:3001/api/inngest"]
+    restart: unless-stopped
+    depends_on:
+      - app
+    ports:
+      - "8288:8288"
+
+volumes:
+  wibn_pgdata:

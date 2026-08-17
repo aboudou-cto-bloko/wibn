@@ -1,5 +1,13 @@
 packages:
   - .
+allowBuilds:
+  '@prisma/client': false
+  better-sqlite3: false
+  bufferutil: false
+  esbuild: false
+  protobufjs: false
+  sharp: false
+  unrs-resolver: false
 ignoredBuiltDependencies:
   - sharp
   - unrs-resolver

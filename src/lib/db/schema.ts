@@ -12,7 +12,7 @@ import {
 import { relations } from "drizzle-orm";
 
 // Enums
-export const planEnum = pgEnum("plan", ["free", "pro", "agency", "enterprise"]);
+export const planEnum = pgEnum("plan", ["free", "pro", "agency", "enterprise", "admin"]);
 export const sourceEnum = pgEnum("source", [
   "reddit",
   "twitter",

@@ -8,12 +8,12 @@ if (!connectionString) {
   throw new Error("DATABASE_URL is not set");
 }
 
+// SSL dépend de la base cible (Neon/Vercel Postgres en ont besoin, un
+// Postgres local Docker non), pas du mode de l'app — NODE_ENV=production
+// (ex: `next start`) ne veut pas dire "la base est distante avec TLS".
 const pool = new Pool({
   connectionString: connectionString,
-  ssl:
-    process.env.NODE_ENV === "production"
-      ? { rejectUnauthorized: false }
-      : false,
+  ssl: process.env.DATABASE_SSL === "true" ? { rejectUnauthorized: false } : false,
 });
 
 export const db = drizzle(pool, { schema });
