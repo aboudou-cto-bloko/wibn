@@ -3,11 +3,12 @@ import { scrapingCategories } from "@/lib/db/schema";
 import { NextResponse } from "next/server";
 import { nanoid } from "nanoid";
 import { eq } from "drizzle-orm";
+import { withAdmin } from "@/lib/auth/api-middleware";
 
 export const revalidate = 0;
 
 // GET - Liste toutes les catégories
-export async function GET() {
+export const GET = withAdmin(async () => {
   try {
     const categories = await db
       .select()
@@ -30,17 +31,23 @@ export async function GET() {
       { status: 500 },
     );
   }
-}
+});
 
 // POST - Créer une nouvelle catégorie
-export async function POST(request: Request) {
+export const POST = withAdmin(async (request) => {
   try {
     const body = await request.json();
     const { name, subreddits } = body;
 
-    if (!name || !Array.isArray(subreddits)) {
+    if (
+      typeof name !== "string" ||
+      !name.trim() ||
+      !Array.isArray(subreddits) ||
+      subreddits.length === 0 ||
+      !subreddits.every((s) => typeof s === "string" && s.trim())
+    ) {
       return NextResponse.json(
-        { error: "Name and subreddits array required" },
+        { error: "Name (string) and subreddits (non-empty string[]) required" },
         { status: 400 },
       );
     }
@@ -63,17 +70,35 @@ export async function POST(request: Request) {
       { status: 500 },
     );
   }
-}
+});
 
 // PUT - Mettre à jour une catégorie
-export async function PUT(request: Request) {
+export const PUT = withAdmin(async (request) => {
   try {
     const body = await request.json();
     const { id, name, subreddits } = body;
 
-    if (!id) {
+    if (typeof id !== "string" || !id.trim()) {
       return NextResponse.json(
         { error: "Category ID required" },
+        { status: 400 },
+      );
+    }
+
+    if (name !== undefined && (typeof name !== "string" || !name.trim())) {
+      return NextResponse.json(
+        { error: "Name must be a non-empty string" },
+        { status: 400 },
+      );
+    }
+
+    if (
+      subreddits !== undefined &&
+      (!Array.isArray(subreddits) ||
+        !subreddits.every((s) => typeof s === "string" && s.trim()))
+    ) {
+      return NextResponse.json(
+        { error: "Subreddits must be a string[]" },
         { status: 400 },
       );
     }
@@ -81,8 +106,8 @@ export async function PUT(request: Request) {
     const [updated] = await db
       .update(scrapingCategories)
       .set({
-        name,
-        subreddits,
+        ...(name !== undefined && { name }),
+        ...(subreddits !== undefined && { subreddits }),
         updatedAt: new Date(),
       })
       .where(eq(scrapingCategories.id, id))
@@ -96,10 +121,10 @@ export async function PUT(request: Request) {
       { status: 500 },
     );
   }
-}
+});
 
 // DELETE - Supprimer une catégorie
-export async function DELETE(request: Request) {
+export const DELETE = withAdmin(async (request) => {
   try {
     const { searchParams } = new URL(request.url);
     const id = searchParams.get("id");
@@ -133,4 +158,4 @@ export async function DELETE(request: Request) {
       { status: 500 },
     );
   }
-}
+});

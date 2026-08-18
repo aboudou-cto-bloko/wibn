@@ -2,10 +2,11 @@ import { db } from "@/lib/db";
 import { painPoints } from "@/lib/db/schema";
 import { desc } from "drizzle-orm";
 import { NextResponse } from "next/server";
+import { withAdmin } from "@/lib/auth/api-middleware";
 
 export const dynamic = "force-dynamic";
 
-export async function GET(request: Request) {
+export const GET = withAdmin(async (request) => {
   try {
     const { searchParams } = new URL(request.url);
     const page = parseInt(searchParams.get("page") || "1");
@@ -63,4 +64,4 @@ export async function GET(request: Request) {
       { status: 500 },
     );
   }
-}
+});

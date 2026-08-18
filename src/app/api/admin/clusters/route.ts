@@ -3,9 +3,12 @@ import { db } from "@/lib/db";
 import { clusters } from "@/lib/db/schema";
 import { desc } from "drizzle-orm";
 import { NextResponse } from "next/server";
+import { withAdmin } from "@/lib/auth/api-middleware";
+
+export const dynamic = "force-dynamic";
 
 // GET - Liste tous les clusters (simple et rapide)
-export async function GET() {
+export const GET = withAdmin(async () => {
   try {
     const allClusters = await db
       .select()
@@ -31,14 +34,14 @@ export async function GET() {
       { status: 500 },
     );
   }
-}
+});
 
 // POST - Trigger clustering job
-export async function POST() {
+export const POST = withAdmin(async () => {
   await inngest.send({
     name: "clustering/generate",
     data: {},
   });
 
   return NextResponse.json({ message: "Clustering job started" });
-}
+});

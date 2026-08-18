@@ -7,10 +7,11 @@ import {
 } from "@/lib/scoring/pain-scorer";
 import { NextResponse } from "next/server";
 import { desc } from "drizzle-orm";
+import { withAdmin } from "@/lib/auth/api-middleware";
 
 export const dynamic = "force-dynamic";
 
-export async function GET() {
+export const GET = withAdmin(async () => {
   // Récupère les 500 derniers pain points
   const allPainPoints = await db
     .select()
@@ -51,4 +52,4 @@ export async function GET() {
         .length,
     },
   });
-}
+});

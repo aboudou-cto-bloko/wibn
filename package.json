@@ -39,7 +39,7 @@
     "dotenv": "^17.2.3",
     "drizzle-orm": "^0.45.1",
     "groq-sdk": "^0.37.0",
-    "inngest": "^3.49.1",
+    "inngest": "^3.54.2",
     "lucide-react": "^0.562.0",
     "nanoid": "^5.1.6",
     "next": "16.1.1",

@@ -3,9 +3,12 @@ import { db } from "@/lib/db";
 import { ideas } from "@/lib/db/schema";
 import { desc } from "drizzle-orm";
 import { NextResponse } from "next/server";
+import { withAdmin } from "@/lib/auth/api-middleware";
+
+export const dynamic = "force-dynamic";
 
 // GET - Liste toutes les idées
-export async function GET() {
+export const GET = withAdmin(async () => {
   const allIdeas = await db
     .select()
     .from(ideas)
@@ -29,14 +32,14 @@ export async function GET() {
       createdAt: i.createdAt,
     })),
   });
-}
+});
 
 // POST - Trigger idea generation job
-export async function POST() {
+export const POST = withAdmin(async () => {
   await inngest.send({
     name: "ideas/generate",
     data: {},
   });
 
   return NextResponse.json({ message: "Idea generation job started" });
-}
+});
