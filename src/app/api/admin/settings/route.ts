@@ -4,23 +4,9 @@ import { NextResponse } from "next/server";
 import { eq } from "drizzle-orm";
 import { withAdmin } from "@/lib/auth/api-middleware";
 import { clearSettingsCache } from "@/lib/settings";
+import { settingsPatchSchema, parseJsonBody } from "@/lib/validation/admin";
 
 export const revalidate = 0; // Pas de cache
-
-// Champs modifiables par PUT — empêche d'écraser "id"/"updatedAt" ou
-// d'injecter des colonnes arbitraires depuis un body non validé.
-const EDITABLE_FIELDS = [
-  "scrapingEnabled",
-  "clusteringEnabled",
-  "ideaGenerationEnabled",
-  "minPainScore",
-  "autoScrapeInterval",
-  "maxPostsPerSubreddit",
-  "minClusterSize",
-  "similarityThreshold",
-  "aiTemperature",
-  "aiMaxTokens",
-] as const;
 
 // GET - Récupère les settings
 export const GET = withAdmin(async () => {
@@ -51,19 +37,15 @@ export const GET = withAdmin(async () => {
 // PUT - Met à jour les settings
 export const PUT = withAdmin(async (request) => {
   try {
-    const body = await request.json();
+    const parsed = await parseJsonBody(request, settingsPatchSchema);
+    if ("error" in parsed) return parsed.error;
 
-    // N'accepte que les champs éditables connus, ignore tout le reste
-    // (dont "id" et "updatedAt", qui ne doivent jamais venir du client).
-    const patch: Record<string, unknown> = {};
-    for (const field of EDITABLE_FIELDS) {
-      if (field in body) patch[field] = body[field];
-    }
-
+    // Le schéma n'expose que les champs éditables (jamais "id"/"updatedAt"),
+    // avec les bons types et bornes — plus de spread de body non validé.
     const updated = await db
       .update(systemSettings)
       .set({
-        ...patch,
+        ...parsed.data,
         updatedAt: new Date(),
       })
       .where(eq(systemSettings.id, "singleton"))

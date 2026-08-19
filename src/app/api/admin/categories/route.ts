@@ -4,6 +4,13 @@ import { NextResponse } from "next/server";
 import { nanoid } from "nanoid";
 import { eq } from "drizzle-orm";
 import { withAdmin } from "@/lib/auth/api-middleware";
+import {
+  categoryCreateSchema,
+  categoryUpdateSchema,
+  categoryDeleteQuerySchema,
+  parseJsonBody,
+  parseQuery,
+} from "@/lib/validation/admin";
 
 export const revalidate = 0;
 
@@ -36,21 +43,9 @@ export const GET = withAdmin(async () => {
 // POST - Créer une nouvelle catégorie
 export const POST = withAdmin(async (request) => {
   try {
-    const body = await request.json();
-    const { name, subreddits } = body;
-
-    if (
-      typeof name !== "string" ||
-      !name.trim() ||
-      !Array.isArray(subreddits) ||
-      subreddits.length === 0 ||
-      !subreddits.every((s) => typeof s === "string" && s.trim())
-    ) {
-      return NextResponse.json(
-        { error: "Name (string) and subreddits (non-empty string[]) required" },
-        { status: 400 },
-      );
-    }
+    const parsed = await parseJsonBody(request, categoryCreateSchema);
+    if ("error" in parsed) return parsed.error;
+    const { name, subreddits } = parsed.data;
 
     const [newCategory] = await db
       .insert(scrapingCategories)
@@ -75,33 +70,9 @@ export const POST = withAdmin(async (request) => {
 // PUT - Mettre à jour une catégorie
 export const PUT = withAdmin(async (request) => {
   try {
-    const body = await request.json();
-    const { id, name, subreddits } = body;
-
-    if (typeof id !== "string" || !id.trim()) {
-      return NextResponse.json(
-        { error: "Category ID required" },
-        { status: 400 },
-      );
-    }
-
-    if (name !== undefined && (typeof name !== "string" || !name.trim())) {
-      return NextResponse.json(
-        { error: "Name must be a non-empty string" },
-        { status: 400 },
-      );
-    }
-
-    if (
-      subreddits !== undefined &&
-      (!Array.isArray(subreddits) ||
-        !subreddits.every((s) => typeof s === "string" && s.trim()))
-    ) {
-      return NextResponse.json(
-        { error: "Subreddits must be a string[]" },
-        { status: 400 },
-      );
-    }
+    const parsed = await parseJsonBody(request, categoryUpdateSchema);
+    if ("error" in parsed) return parsed.error;
+    const { id, name, subreddits } = parsed.data;
 
     const [updated] = await db
       .update(scrapingCategories)
@@ -127,14 +98,9 @@ export const PUT = withAdmin(async (request) => {
 export const DELETE = withAdmin(async (request) => {
   try {
     const { searchParams } = new URL(request.url);
-    const id = searchParams.get("id");
-
-    if (!id) {
-      return NextResponse.json(
-        { error: "Category ID required" },
-        { status: 400 },
-      );
-    }
+    const parsed = parseQuery(searchParams, categoryDeleteQuerySchema);
+    if ("error" in parsed) return parsed.error;
+    const { id } = parsed.data;
 
     const [category] = await db
       .select()
