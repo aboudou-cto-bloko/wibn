@@ -38,10 +38,18 @@ export const GET = withAdmin(async () => {
 
 // POST - Trigger clustering job
 export const POST = withAdmin(async () => {
-  await inngest.send({
-    name: "clustering/generate",
-    data: {},
-  });
+  try {
+    await inngest.send({
+      name: "clustering/generate",
+      data: {},
+    });
 
-  return NextResponse.json({ message: "Clustering job started" });
+    return NextResponse.json({ message: "Clustering job started" });
+  } catch (error) {
+    console.error("Error starting clustering job:", error);
+    return NextResponse.json(
+      { error: "Failed to start clustering job" },
+      { status: 500 },
+    );
+  }
 });

@@ -9,21 +9,29 @@ export const POST = withAdmin(async (request) => {
   if ("error" in parsed) return parsed.error;
   const { subreddits, categories } = parsed.data;
 
-  // categories a priorité sur subreddits si les deux sont fournis.
-  const finalSubreddits = categories
-    ? getSubredditsByCategory(categories)
-    : subreddits!;
+  try {
+    // categories a priorité sur subreddits si les deux sont fournis.
+    const finalSubreddits = categories
+      ? getSubredditsByCategory(categories)
+      : subreddits!;
 
-  await inngest.send({
-    name: "scraping/reddit.trigger",
-    data: {
+    await inngest.send({
+      name: "scraping/reddit.trigger",
+      data: {
+        subreddits: finalSubreddits,
+        timeframe: "week",
+      },
+    });
+
+    return NextResponse.json({
+      message: "Scraping job started",
       subreddits: finalSubreddits,
-      timeframe: "week",
-    },
-  });
-
-  return NextResponse.json({
-    message: "Scraping job started",
-    subreddits: finalSubreddits,
-  });
+    });
+  } catch (error) {
+    console.error("Error starting scraping job:", error);
+    return NextResponse.json(
+      { error: "Failed to start scraping job" },
+      { status: 500 },
+    );
+  }
 });

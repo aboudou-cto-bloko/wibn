@@ -32,7 +32,7 @@ export default function HomePage() {
           <div className="flex items-center gap-4">
             <Button variant="ghost" asChild>
               <a
-                href="https://github.com/yourusername/wibn"
+                href="https://github.com/aboudou-cto-bloko/wibn"
                 target="_blank"
                 rel="noopener noreferrer"
               >
@@ -70,7 +70,7 @@ export default function HomePage() {
           </Button>
           <Button size="lg" variant="outline" asChild>
             <a
-              href="https://github.com/yourusername/wibn"
+              href="https://github.com/aboudou-cto-bloko/wibn"
               target="_blank"
               rel="noopener noreferrer"
             >
@@ -302,7 +302,7 @@ export default function HomePage() {
             </div>
             <div className="flex items-center gap-6 text-sm text-muted-foreground">
               <a
-                href="https://github.com/yourusername/wibn"
+                href="https://github.com/aboudou-cto-bloko/wibn"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="hover:text-foreground transition-colors"

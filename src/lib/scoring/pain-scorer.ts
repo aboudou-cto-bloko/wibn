@@ -318,7 +318,7 @@ export function groupByRecurringAuthors(
   });
 
   return Array.from(authorMap.entries())
-    .filter(([_, posts]) => posts.length >= minPosts)
+    .filter(([, posts]) => posts.length >= minPosts)
     .map(([author, posts]) => ({
       author,
       posts: posts.sort((a, b) => b.painScore - a.painScore),
