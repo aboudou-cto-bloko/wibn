@@ -2,11 +2,14 @@ import { db } from "@/lib/db";
 import { systemSettings } from "@/lib/db/schema";
 import { NextResponse } from "next/server";
 import { eq } from "drizzle-orm";
+import { withAdmin } from "@/lib/auth/api-middleware";
+import { clearSettingsCache } from "@/lib/settings";
+import { settingsPatchSchema, parseJsonBody } from "@/lib/validation/admin";
 
 export const revalidate = 0; // Pas de cache
 
 // GET - Récupère les settings
-export async function GET() {
+export const GET = withAdmin(async () => {
   try {
     let [settings] = await db
       .select()
@@ -29,21 +32,28 @@ export async function GET() {
       { status: 500 },
     );
   }
-}
+});
 
 // PUT - Met à jour les settings
-export async function PUT(request: Request) {
+export const PUT = withAdmin(async (request) => {
   try {
-    const body = await request.json();
+    const parsed = await parseJsonBody(request, settingsPatchSchema);
+    if ("error" in parsed) return parsed.error;
 
+    // Le schéma n'expose que les champs éditables (jamais "id"/"updatedAt"),
+    // avec les bons types et bornes — plus de spread de body non validé.
     const updated = await db
       .update(systemSettings)
       .set({
-        ...body,
+        ...parsed.data,
         updatedAt: new Date(),
       })
       .where(eq(systemSettings.id, "singleton"))
       .returning();
+
+    // Sans ça, les jobs en cours (scraping/clustering/génération) continuent
+    // d'utiliser les anciennes valeurs jusqu'à 60s (cache de getSettings()).
+    clearSettingsCache();
 
     return NextResponse.json(updated[0]);
   } catch (error) {
@@ -53,4 +63,4 @@ export async function PUT(request: Request) {
       { status: 500 },
     );
   }
-}
+});

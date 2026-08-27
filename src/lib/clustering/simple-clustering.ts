@@ -300,7 +300,11 @@ export function clusterPainPoints(
     .filter((p) => !used.has(p.point.sourceId))
     .map((p) => p.point);
 
-  if (remainingPoints.length > 0 && remainingPoints.length < minClusterSize) {
+  // Bug corrigé : ce bloc ne s'exécutait qu'en dessous de minClusterSize,
+  // donc dès qu'il restait minClusterSize+ points non regroupés (le cas
+  // fréquent), ils disparaissaient silencieusement — jamais de clusterId,
+  // jamais visibles, jamais utilisés pour générer une idée.
+  if (remainingPoints.length > 0) {
     const otherKeywords = new Set<string>();
     remainingPoints.forEach((point) => {
       extractKeywords(`${point.title} ${point.content}`).forEach((k) =>

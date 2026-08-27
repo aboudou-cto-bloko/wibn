@@ -3,11 +3,19 @@ import { scrapingCategories } from "@/lib/db/schema";
 import { NextResponse } from "next/server";
 import { nanoid } from "nanoid";
 import { eq } from "drizzle-orm";
+import { withAdmin } from "@/lib/auth/api-middleware";
+import {
+  categoryCreateSchema,
+  categoryUpdateSchema,
+  categoryDeleteQuerySchema,
+  parseJsonBody,
+  parseQuery,
+} from "@/lib/validation/admin";
 
 export const revalidate = 0;
 
 // GET - Liste toutes les catégories
-export async function GET() {
+export const GET = withAdmin(async () => {
   try {
     const categories = await db
       .select()
@@ -30,20 +38,14 @@ export async function GET() {
       { status: 500 },
     );
   }
-}
+});
 
 // POST - Créer une nouvelle catégorie
-export async function POST(request: Request) {
+export const POST = withAdmin(async (request) => {
   try {
-    const body = await request.json();
-    const { name, subreddits } = body;
-
-    if (!name || !Array.isArray(subreddits)) {
-      return NextResponse.json(
-        { error: "Name and subreddits array required" },
-        { status: 400 },
-      );
-    }
+    const parsed = await parseJsonBody(request, categoryCreateSchema);
+    if ("error" in parsed) return parsed.error;
+    const { name, subreddits } = parsed.data;
 
     const [newCategory] = await db
       .insert(scrapingCategories)
@@ -63,26 +65,20 @@ export async function POST(request: Request) {
       { status: 500 },
     );
   }
-}
+});
 
 // PUT - Mettre à jour une catégorie
-export async function PUT(request: Request) {
+export const PUT = withAdmin(async (request) => {
   try {
-    const body = await request.json();
-    const { id, name, subreddits } = body;
-
-    if (!id) {
-      return NextResponse.json(
-        { error: "Category ID required" },
-        { status: 400 },
-      );
-    }
+    const parsed = await parseJsonBody(request, categoryUpdateSchema);
+    if ("error" in parsed) return parsed.error;
+    const { id, name, subreddits } = parsed.data;
 
     const [updated] = await db
       .update(scrapingCategories)
       .set({
-        name,
-        subreddits,
+        ...(name !== undefined && { name }),
+        ...(subreddits !== undefined && { subreddits }),
         updatedAt: new Date(),
       })
       .where(eq(scrapingCategories.id, id))
@@ -96,20 +92,15 @@ export async function PUT(request: Request) {
       { status: 500 },
     );
   }
-}
+});
 
 // DELETE - Supprimer une catégorie
-export async function DELETE(request: Request) {
+export const DELETE = withAdmin(async (request) => {
   try {
     const { searchParams } = new URL(request.url);
-    const id = searchParams.get("id");
-
-    if (!id) {
-      return NextResponse.json(
-        { error: "Category ID required" },
-        { status: 400 },
-      );
-    }
+    const parsed = parseQuery(searchParams, categoryDeleteQuerySchema);
+    if ("error" in parsed) return parsed.error;
+    const { id } = parsed.data;
 
     const [category] = await db
       .select()
@@ -133,4 +124,4 @@ export async function DELETE(request: Request) {
       { status: 500 },
     );
   }
-}
+});

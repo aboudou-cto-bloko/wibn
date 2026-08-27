@@ -58,6 +58,7 @@ export default function ScrapingPage() {
       const data = await res.json();
       setCategories(data.categories);
     } catch (error) {
+      console.error(error);
       toast.error("Failed to load categories");
     }
   };
@@ -151,6 +152,7 @@ export default function ScrapingPage() {
         throw new Error("Failed to save category");
       }
     } catch (error) {
+      console.error(error);
       toast.error("Failed to save category");
     }
   };

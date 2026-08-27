@@ -2,7 +2,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ExternalLink, TrendingUp } from "lucide-react";
+import { ExternalLink } from "lucide-react";
 import type { PainPointCardProps } from "@/types/dashboard";
 
 export function PainPointCard({ painPoint }: PainPointCardProps) {

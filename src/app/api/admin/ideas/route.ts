@@ -3,40 +3,59 @@ import { db } from "@/lib/db";
 import { ideas } from "@/lib/db/schema";
 import { desc } from "drizzle-orm";
 import { NextResponse } from "next/server";
+import { withAdmin } from "@/lib/auth/api-middleware";
+
+export const dynamic = "force-dynamic";
 
 // GET - Liste toutes les idées
-export async function GET() {
-  const allIdeas = await db
-    .select()
-    .from(ideas)
-    .orderBy(desc(ideas.createdAt))
-    .limit(50);
+export const GET = withAdmin(async () => {
+  try {
+    const allIdeas = await db
+      .select()
+      .from(ideas)
+      .orderBy(desc(ideas.createdAt))
+      .limit(50);
 
-  return NextResponse.json({
-    total: allIdeas.length,
-    ideas: allIdeas.map((i) => ({
-      id: i.id,
-      title: i.title,
-      tagline: i.tagline,
-      description: i.description,
-      targetAudience: i.targetAudience,
-      features: i.features,
-      pricingModel: i.pricingModel,
-      estimatedMRR: i.estimatedMRR,
-      competitors: i.competitors,
-      moat: i.moat,
-      clusterId: i.clusterId,
-      createdAt: i.createdAt,
-    })),
-  });
-}
+    return NextResponse.json({
+      total: allIdeas.length,
+      ideas: allIdeas.map((i) => ({
+        id: i.id,
+        title: i.title,
+        tagline: i.tagline,
+        description: i.description,
+        targetAudience: i.targetAudience,
+        features: i.features,
+        pricingModel: i.pricingModel,
+        estimatedMRR: i.estimatedMRR,
+        competitors: i.competitors,
+        moat: i.moat,
+        clusterId: i.clusterId,
+        createdAt: i.createdAt,
+      })),
+    });
+  } catch (error) {
+    console.error("Error fetching ideas:", error);
+    return NextResponse.json(
+      { error: "Failed to fetch ideas" },
+      { status: 500 },
+    );
+  }
+});
 
 // POST - Trigger idea generation job
-export async function POST() {
-  await inngest.send({
-    name: "ideas/generate",
-    data: {},
-  });
+export const POST = withAdmin(async () => {
+  try {
+    await inngest.send({
+      name: "ideas/generate",
+      data: {},
+    });
 
-  return NextResponse.json({ message: "Idea generation job started" });
-}
+    return NextResponse.json({ message: "Idea generation job started" });
+  } catch (error) {
+    console.error("Error starting idea generation job:", error);
+    return NextResponse.json(
+      { error: "Failed to start idea generation job" },
+      { status: 500 },
+    );
+  }
+});

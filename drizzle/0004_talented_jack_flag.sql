@@ -65,8 +65,6 @@ DROP TABLE "accounts" CASCADE;--> statement-breakpoint
 DROP TABLE "sessions" CASCADE;--> statement-breakpoint
 DROP TABLE "users" CASCADE;--> statement-breakpoint
 DROP TABLE "verifications" CASCADE;--> statement-breakpoint
-ALTER TABLE "user_ideas" DROP CONSTRAINT "user_ideas_user_id_users_id_fk";
---> statement-breakpoint
 ALTER TABLE "account" ADD CONSTRAINT "account_user_id_user_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "session" ADD CONSTRAINT "session_user_id_user_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 CREATE INDEX "account_user_id_idx" ON "account" USING btree ("user_id");--> statement-breakpoint

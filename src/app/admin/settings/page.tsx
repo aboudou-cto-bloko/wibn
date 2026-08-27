@@ -17,6 +17,7 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 import { Settings, Save, RefreshCw } from "lucide-react";
+import { LicenseCard } from "@/components/admin/license-card";
 
 interface SystemSettings {
   scrapingEnabled: boolean;
@@ -46,6 +47,7 @@ export default function SettingsPage() {
       const data = await res.json();
       setSettings(data);
     } catch (error) {
+      console.error(error);
       toast.error("Failed to load settings");
     } finally {
       setLoading(false);
@@ -69,6 +71,7 @@ export default function SettingsPage() {
         throw new Error("Failed to save settings");
       }
     } catch (error) {
+      console.error(error);
       toast.error("Failed to save settings");
     } finally {
       setSaving(false);
@@ -102,6 +105,9 @@ export default function SettingsPage() {
           Configure your WIBN instance
         </p>
       </div>
+
+      {/* Licence */}
+      <LicenseCard />
 
       {/* System Status */}
       <Card>

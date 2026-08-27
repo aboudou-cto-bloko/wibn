@@ -12,7 +12,7 @@ import {
 import { relations } from "drizzle-orm";
 
 // Enums
-export const planEnum = pgEnum("plan", ["free", "pro", "agency", "enterprise"]);
+export const planEnum = pgEnum("plan", ["free", "pro", "agency", "enterprise", "admin"]);
 export const sourceEnum = pgEnum("source", [
   "reddit",
   "twitter",
@@ -329,6 +329,13 @@ export const systemSettings = pgTable("system_settings", {
   // AI config
   aiTemperature: real("ai_temperature").default(0.8).notNull(),
   aiMaxTokens: integer("ai_max_tokens").default(4000).notNull(),
+
+  // Licence — JWT de licence activé sur cette instance (source de vérité,
+  // vérifié offline via src/lib/license.ts) et identifiant stable de
+  // l'instance (généré au premier boot, sert de "machine_id" côté
+  // license-server pour le verrou d'activation à un seul appareil).
+  licenseKey: text("license_key"),
+  machineId: text("machine_id"),
 
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });

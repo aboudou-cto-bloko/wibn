@@ -1,42 +1,39 @@
 import { db } from "@/lib/db";
 import { painPoints } from "@/lib/db/schema";
-import { desc } from "drizzle-orm";
+import { count, desc, gte } from "drizzle-orm";
 import { NextResponse } from "next/server";
+import { withAdmin } from "@/lib/auth/api-middleware";
+import { painPointsQuerySchema, parseQuery } from "@/lib/validation/admin";
 
-export const revalidate = 60;
+export const dynamic = "force-dynamic";
 
-export async function GET(request: Request) {
+export const GET = withAdmin(async (request) => {
   try {
     const { searchParams } = new URL(request.url);
-    const page = parseInt(searchParams.get("page") || "1");
-    const limit = parseInt(searchParams.get("limit") || "20");
-    const minScore = parseInt(searchParams.get("minScore") || "0");
+    const parsed = parseQuery(searchParams, painPointsQuerySchema);
+    if ("error" in parsed) return parsed.error;
+    const { page, limit, minScore } = parsed.data;
 
     const offset = (page - 1) * limit;
+    // minScore > 0 uniquement : évite un filtre sur painScore NULL non désiré.
+    const where = minScore > 0 ? gte(painPoints.painScore, minScore) : undefined;
 
-    // Query avec pagination et filtre
-    const query = db
-      .select()
-      .from(painPoints)
-      .orderBy(desc(painPoints.painScore), desc(painPoints.scrapedAt))
-      .limit(limit)
-      .offset(offset);
-
-    const allPoints = await query;
-
-    // Filtre par score si demandé
-    const filtered =
-      minScore > 0
-        ? allPoints.filter((p) => (p.painScore || 0) >= minScore)
-        : allPoints;
-
-    // Compte total (approximatif pour la perf)
-    const [totalCount] = await db
-      .select({ count: painPoints.id })
-      .from(painPoints);
+    // Le filtre est appliqué en SQL avant LIMIT/OFFSET (avant : filtré après
+    // coup sur une seule page déjà tronquée, donc "total"/"hasMore" faux et
+    // des résultats manquants dès que minScore excluait des lignes de la page).
+    const [points, [{ total }]] = await Promise.all([
+      db
+        .select()
+        .from(painPoints)
+        .where(where)
+        .orderBy(desc(painPoints.painScore), desc(painPoints.scrapedAt))
+        .limit(limit)
+        .offset(offset),
+      db.select({ total: count() }).from(painPoints).where(where),
+    ]);
 
     return NextResponse.json({
-      painPoints: filtered.map((p) => ({
+      painPoints: points.map((p) => ({
         id: p.id,
         source: p.source,
         title: p.title,
@@ -52,8 +49,8 @@ export async function GET(request: Request) {
       pagination: {
         page,
         limit,
-        total: filtered.length,
-        hasMore: filtered.length === limit,
+        total,
+        hasMore: offset + points.length < total,
       },
     });
   } catch (error) {
@@ -63,4 +60,4 @@ export async function GET(request: Request) {
       { status: 500 },
     );
   }
-}
+});
