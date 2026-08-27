@@ -1,0 +1,28 @@
+// Une ligne par licence WIBN émise. L'activation (1 instance/licence) est
+// repliée sur la même ligne plutôt qu'une table séparée : la relation est
+// 1:1 et il n'y a jamais qu'un seul verrou actif par licence.
+model License {
+  jti           String             @id
+  email         String
+  plan          String
+  createdAt     TimestamptzString  @default(now())
+  expiresAt     TimestamptzString
+  revoked       Boolean            @default(false)
+  machineId     String?
+  activatedAt   TimestamptzString?
+
+  // Giveaway : clés pré-générées avec un email mockup, distribuées au clic
+  // public sur /api/giveaway/claim. `giveawayBatch` regroupe un lot (ex:
+  // "giveaway-2026-08") ; `claimedAt` non-null = déjà livrée à quelqu'un.
+  // Distinct de `activatedAt` (qui marque l'activation sur une instance
+  // Docker, plus tard, une fois la personne chez elle). `token` garde le JWT
+  // signé au moment de la génération (RS256 est déterministe donc on
+  // pourrait le re-signer à l'identique, mais le stocker directement évite
+  // toute dépendance à cette propriété pour un futur lecteur du code).
+  giveawayBatch String?
+  claimedAt     TimestamptzString?
+  token         String?
+
+  @@index([email])
+  @@index([giveawayBatch])
+}

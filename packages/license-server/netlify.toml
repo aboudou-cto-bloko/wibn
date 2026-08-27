@@ -1,0 +1,20 @@
+[build]
+  # Obligatoire en monorepo : sans ça, Netlify résout `publish`/`functions.directory`
+  # relativement à la racine du repo git (~/projects/wibn) au lieu de ce
+  # dossier — et remonte jusqu'à l'app Next.js WIBN pour la détection de
+  # framework (d'où le plugin @netlify/plugin-nextjs qui s'auto-installait
+  # et échouait, faute de vrai build Next.js ici).
+  base = "packages/license-server"
+  # `command` explicite (même no-op) pour désactiver la détection auto de
+  # framework. `npm install` comme commande échoue aussi (conflits de peer
+  # deps des packages rc de Prisma sous npm non-interactif) : node_modules
+  # est déjà correct en local, pas besoin de réinstaller.
+  command = "echo 'no build needed — functions are bundled by esbuild at deploy time'"
+  # `publish`/`functions.directory` restent résolus depuis la racine du repo
+  # git même avec `base` ci-dessus (comportement observé de ce CLI) — d'où
+  # le chemin complet depuis la racine plutôt que relatif à ce dossier.
+  publish = "packages/license-server/public"
+
+[functions]
+  directory = "packages/license-server/api"
+  node_bundler = "esbuild"

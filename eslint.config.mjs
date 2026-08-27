@@ -12,6 +12,11 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // packages/* are standalone projects (own tsconfig, own deps, deployed
+    // separately) — not part of this app's Next.js/React lint surface.
+    // Generated files in particular (e.g. Prisma's contract.d.ts) aren't
+    // meant to be hand-fixed to satisfy this config.
+    "packages/**",
   ]),
 ]);
 
