@@ -8,6 +8,10 @@
 
 ![WIBN Dashboard](https://placehold.co/1200x600/1a1a2e/ffffff?text=WIBN+Dashboard)
 
+> 📖 **Nouveau sur WIBN ?** Le [guide de démarrage](https://wibn-license.netlify.app)
+> couvre l'installation, l'activation de ta licence, et comment utiliser chaque
+> partie du dashboard.
+
 ## 🐳 Lancer en local avec Docker (recommandé)
 
 Aucune dépendance à installer à part Docker : Postgres, l'app et le serveur
@@ -15,19 +19,36 @@ Inngest tournent chacun dans leur conteneur.
 
 ```bash
 cp .env.example .env
-# Édite .env : au minimum GROQ_API_KEY, BETTER_AUTH_SECRET, ADMIN_PASSWORD
+# Édite .env : au minimum GROQ_API_KEY, BETTER_AUTH_SECRET
 
 docker compose up -d --build
 ```
 
 - App : http://localhost:3001
-- Connexion : http://localhost:3001/sign-in avec `ADMIN_EMAIL` / `ADMIN_PASSWORD` de `.env`
 - Dashboard Inngest (jobs de scraping/clustering/génération) : http://localhost:8288
 - Postgres exposé sur le host en `5433` (évite un conflit avec un Postgres local existant) : `postgresql://wibn:wibn@localhost:5433/wibn`
 
+### Onboarding (première utilisation)
+
+WIBN self-hosted est verrouillé derrière une clé de licence (comme
+[Prospecto](https://github.com/aboudou-cto-bloko/prospecto)) — pas de
+paiement pour l'instant, juste une clé à activer. Marche à suivre complète
+(récupérer une clé, activer, créer ton compte, utiliser le dashboard) : voir
+le **[guide de démarrage](https://wibn-license.netlify.app)**.
+
+Pas encore de clé et tu es le mainteneur ? Émets-en une via
+`packages/license-server` — voir son README.
+
+Deux notes techniques : (1) `ADMIN_EMAIL`/`ADMIN_PASSWORD`/`ADMIN_NAME` dans
+`.env` créent un compte admin au boot sans passer par `/sign-up`, mais
+`/activate` reste requis quand même (licence et auth = deux verrous
+indépendants) ; (2) en dev local hors Docker (`NODE_ENV` ≠ `production`), le
+verrou de licence est désactivé pour ne pas gêner le dev loop.
+
 Au démarrage, le conteneur `app` applique automatiquement les migrations
 Drizzle, seed les catégories Reddit par défaut, et crée le premier compte
-admin (idempotent — sûr à relancer). Logs :
+admin si `ADMIN_EMAIL`/`ADMIN_PASSWORD` sont fournis (idempotent — sûr à
+relancer). Logs :
 
 ```bash
 docker compose logs -f app

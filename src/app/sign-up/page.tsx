@@ -16,8 +16,9 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 
-export default function SignInPage() {
+export default function SignUpPage() {
   const router = useRouter();
+  const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -26,15 +27,18 @@ export default function SignInPage() {
     e.preventDefault();
     setLoading(true);
 
-    const { error } = await authClient.signIn.email({ email, password });
+    const { error } = await authClient.signUp.email({ email, password, name });
 
     setLoading(false);
 
     if (error) {
-      toast.error(error.message || "Connexion impossible");
+      toast.error(error.message || "Inscription impossible");
       return;
     }
 
+    // Le premier compte créé sur une instance est automatiquement promu
+    // admin (voir databaseHooks.user.create.after dans src/lib/auth/auth.ts).
+    toast.success("Compte créé !");
     router.push("/admin");
     router.refresh();
   }
@@ -43,11 +47,24 @@ export default function SignInPage() {
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-background to-muted/20 px-4">
       <Card className="w-full max-w-sm">
         <CardHeader>
-          <CardTitle>Connexion</CardTitle>
-          <CardDescription>Accès au dashboard admin WIBN</CardDescription>
+          <CardTitle>Créer un compte</CardTitle>
+          <CardDescription>
+            Le premier compte créé sur cette instance devient administrateur.
+          </CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="name">Nom</Label>
+              <Input
+                id="name"
+                type="text"
+                autoComplete="name"
+                required
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+              />
+            </div>
             <div className="space-y-2">
               <Label htmlFor="email">Email</Label>
               <Input
@@ -64,20 +81,21 @@ export default function SignInPage() {
               <Input
                 id="password"
                 type="password"
-                autoComplete="current-password"
+                autoComplete="new-password"
                 required
+                minLength={8}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
               />
             </div>
             <Button type="submit" className="w-full" disabled={loading}>
-              {loading ? "Connexion..." : "Se connecter"}
+              {loading ? "Création..." : "Créer le compte"}
             </Button>
           </form>
           <p className="mt-4 text-center text-sm text-muted-foreground">
-            Pas encore de compte sur cette instance ?{" "}
-            <Link href="/sign-up" className="underline underline-offset-4">
-              Créer un compte
+            Déjà un compte ?{" "}
+            <Link href="/sign-in" className="underline underline-offset-4">
+              Se connecter
             </Link>
           </p>
         </CardContent>
