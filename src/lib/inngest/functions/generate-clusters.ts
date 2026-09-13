@@ -4,9 +4,12 @@ import { painPoints, clusters } from "@/lib/db/schema";
 import {
   clusterPainPoints,
   evaluateClustering,
+  describeClusterFromPoints,
+  type Cluster,
 } from "@/lib/clustering/simple-clustering";
+import { tagPainPointsWithAI } from "@/lib/clustering/ai-tagger";
 import { nanoid } from "nanoid";
-import { isNull, eq } from "drizzle-orm";
+import { isNull, eq, sql } from "drizzle-orm";
 import { getSettings } from "@/lib/settings";
 
 export const generateClustersFunction = inngest.createFunction(
@@ -57,17 +60,103 @@ export const generateClustersFunction = inngest.createFunction(
       };
     }
 
+    // Noms des clusters déjà en base : passés au tagging IA pour qu'il
+    // réutilise un tag exact plutôt que d'en inventer un synonyme, sans
+    // quoi le même sujet se fragmenterait en plusieurs clusters au fil des
+    // runs successifs.
+    const existingClusterNames = await step.run(
+      "fetch-existing-cluster-names",
+      async () => {
+        const rows = await db.select({ name: clusters.name }).from(clusters);
+        return rows.map((r) => r.name).filter((n): n is string => !!n);
+      },
+    );
+
+    // Tagging IA (Groq) : voir src/lib/clustering/ai-tagger.ts pour le
+    // pourquoi (le clustering par recoupement de mots-clés bruts ne capte
+    // aucune similarité sémantique entre formulations différentes du même
+    // problème — observé en conditions réelles : 36/36 pain points HN
+    // regroupés dans un seul cluster fourre-tout).
+    // Map -> objet : la sortie d'un step Inngest doit être sérialisable
+    // en JSON pour être persistée entre les steps.
+    const tagBySourceId = await step.run("ai-tag-pain-points", async () => {
+      const map = await tagPainPointsWithAI(
+        unclusteredPoints,
+        existingClusterNames,
+      );
+      return Object.fromEntries(map) as Record<string, string>;
+    });
+
     const generatedClusters = await step.run(
       "cluster-pain-points",
       async () => {
-        console.log(
-          `Starting clustering with minClusterSize=${settings.minClusterSize}, similarityThreshold=${settings.similarityThreshold}`,
+        const tagged = unclusteredPoints.filter(
+          (p) => tagBySourceId[p.sourceId],
+        );
+        const untagged = unclusteredPoints.filter(
+          (p) => !tagBySourceId[p.sourceId],
         );
 
-        return clusterPainPoints(
-          unclusteredPoints,
-          settings.minClusterSize,
-          settings.similarityThreshold,
+        console.log(
+          `AI tagging: ${tagged.length} pain points tagués, ${untagged.length} en échec (fallback Jaccard)`,
+        );
+
+        // Group-by déterministe sur le tag IA (insensible à la casse).
+        const groups = new Map<
+          string,
+          { displayName: string; points: typeof tagged }
+        >();
+        for (const point of tagged) {
+          const tag = tagBySourceId[point.sourceId];
+          const key = tag.toLowerCase();
+          const group = groups.get(key);
+          if (group) {
+            group.points.push(point);
+          } else {
+            groups.set(key, { displayName: tag, points: [point] });
+          }
+        }
+
+        // Un tag IA devient un cluster réel dès qu'il existe, quelle que
+        // soit sa taille (y compris 1 seul pain point) : la cohérence vient
+        // du tag sémantique lui-même, pas d'un seuil arbitraire. Forcer un
+        // minimum ici revenait à jeter les tags trop petits dans le
+        // fourre-tout Jaccard ci-dessous — exactement le mécanisme qui
+        // produisait des clusters incohérents (des pain points sans rapport
+        // regroupés ensemble, puis un LLM sommé d'en tirer un seul produit
+        // cohérent : voir l'idée "HouseDesk" — AR + sondages + analytics
+        // mélangés — générée à partir d'un tel fourre-tout).
+        const aiClusters: Cluster[] = Array.from(groups.values()).map(
+          ({ displayName, points }) => ({
+            id: `ai_${displayName.toLowerCase().replace(/\s+/g, "_")}`,
+            name: displayName,
+            description: describeClusterFromPoints(points),
+            painPoints: points,
+            avgPainScore: Math.round(
+              points.reduce((sum, p) => sum + p.painScore, 0) / points.length,
+            ),
+            keywords: [displayName],
+          }),
+        );
+
+        // Fallback Jaccard uniquement pour les points où le tagging IA a
+        // échoué (erreur réseau/parsing — voir ai-tagger.ts). Ce fallback
+        // ne crée plus lui non plus de fourre-tout "Autres" : les points
+        // sans paire suffisamment similaire restent non clusterisés
+        // (cluster_id NULL) plutôt que rejoints de force — ils redeviennent
+        // candidats au prochain run, une fois que d'autres points sur le
+        // même sujet auront été scrapés.
+        const fallbackClusters =
+          untagged.length > 0
+            ? clusterPainPoints(
+                untagged,
+                settings.minClusterSize,
+                settings.similarityThreshold,
+              ).filter((c) => c.id !== "cluster_others")
+            : [];
+
+        return [...aiClusters, ...fallbackClusters].sort(
+          (a, b) => b.avgPainScore - a.avgPainScore,
         );
       },
     );
@@ -79,22 +168,50 @@ export const generateClustersFunction = inngest.createFunction(
 
     console.log("Clustering evaluation:", evaluation);
 
-    // Sauvegarde en DB
+    // Sauvegarde en DB — fusionne dans un cluster existant de même nom
+    // (insensible à la casse) au lieu d'en recréer un doublon, pour que le
+    // même sujet reste un cluster unique au fil des runs successifs.
     const savedCount = await step.run("save-clusters", async () => {
       for (const cluster of generatedClusters) {
-        const clusterId = nanoid();
+        const [existing] = await db
+          .select()
+          .from(clusters)
+          .where(sql`lower(${clusters.name}) = lower(${cluster.name})`);
 
-        // Insère le cluster
-        await db.insert(clusters).values({
-          id: clusterId,
-          name: cluster.name,
-          description: cluster.description,
-          painPointCount: cluster.painPoints.length,
-          avgPainScore: cluster.avgPainScore,
-          keywords: cluster.keywords,
-        });
+        let clusterId: string;
 
-        // Met à jour les pain points avec le clusterId
+        if (existing) {
+          clusterId = existing.id;
+          const prevCount = existing.painPointCount || 0;
+          const prevAvg = existing.avgPainScore || 0;
+          const newCount = prevCount + cluster.painPoints.length;
+          const newAvg = Math.round(
+            (prevAvg * prevCount +
+              cluster.painPoints.reduce((sum, p) => sum + p.painScore, 0)) /
+              newCount,
+          );
+
+          await db
+            .update(clusters)
+            .set({
+              painPointCount: newCount,
+              avgPainScore: newAvg,
+              updatedAt: new Date(),
+            })
+            .where(eq(clusters.id, clusterId));
+        } else {
+          clusterId = nanoid();
+
+          await db.insert(clusters).values({
+            id: clusterId,
+            name: cluster.name,
+            description: cluster.description,
+            painPointCount: cluster.painPoints.length,
+            avgPainScore: cluster.avgPainScore,
+            keywords: cluster.keywords,
+          });
+        }
+
         for (const point of cluster.painPoints) {
           await db
             .update(painPoints)

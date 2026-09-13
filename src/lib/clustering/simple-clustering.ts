@@ -217,6 +217,25 @@ function getTopKeywords(keywords: string[], limit: number): string[] {
 }
 
 /**
+ * Description d'un cluster à partir de ses 3 pain points les mieux notés
+ * (extrait, réutilisé aussi par le clustering assisté par IA — voir
+ * src/lib/inngest/functions/generate-clusters.ts).
+ */
+export function describeClusterFromPoints(points: ScoredPainPoint[]): string {
+  const topPoints = [...points]
+    .sort((a, b) => b.painScore - a.painScore)
+    .slice(0, 3);
+
+  const description = topPoints
+    .map((p, idx) => `${idx + 1}. ${p.title.substring(0, 80)}...`)
+    .join("\n");
+
+  return description.length > 150
+    ? description.substring(0, 150) + "..."
+    : description;
+}
+
+/**
  * Clustering optimisé avec amélioration des performances
  */
 export function clusterPainPoints(
@@ -267,21 +286,10 @@ export function clusterPainPoints(
 
       const topKeywords = getTopKeywords(allKeywords, 5);
 
-      const topClusterPoints = clusterPoints
-        .slice(0, 3)
-        .sort((a, b) => b.painScore - a.painScore);
-
-      const description = topClusterPoints
-        .map((p, idx) => `${idx + 1}. ${p.title.substring(0, 80)}...`)
-        .join("\n");
-
       clusters.push({
         id: `cluster_${clusters.length + 1}`,
         name: generateClusterName(topKeywords),
-        description:
-          description.length > 150
-            ? description.substring(0, 150) + "..."
-            : description,
+        description: describeClusterFromPoints(clusterPoints),
         painPoints: clusterPoints,
         avgPainScore: Math.round(
           clusterPoints.reduce((sum, p) => sum + p.painScore, 0) /

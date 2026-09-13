@@ -13,6 +13,128 @@ export interface SaaSIdea {
   moat: string;
 }
 
+interface PricingTier {
+  name: string;
+  pricePerMonth: number;
+  description: string;
+}
+
+interface AdoptionPhase {
+  label: string;
+  // Doit utiliser exactement les noms de pricingTiers[].name.
+  tierCounts: Record<string, number>;
+}
+
+interface SaaSIdeaDraft {
+  title: string;
+  tagline: string;
+  description: string;
+  targetAudience: string;
+  features: string[];
+  pricingTiers: PricingTier[];
+  adoptionPhases: AdoptionPhase[];
+  competitors: string[];
+  moat: string;
+}
+
+/**
+ * Calcule le MRR réel à partir des tiers de pricing et des hypothèses
+ * d'adoption — en code, pas par le LLM. Une revue manuelle d'une idée
+ * générée (2026-09-13) a trouvé des additions fausses dans le MRR estimé
+ * par le LLM (ex: Mois 4-6 annoncé à 12 250 $ alors que 70×49+25×149+5×399
+ * = 9 150 $) : l'arithmétique n'est pas un point fort fiable d'un LLM,
+ * donc on la retire complètement de son périmètre — il ne fait que
+ * proposer les tiers/l'adoption, le calcul est déterministe.
+ */
+function computeMRR(tiers: PricingTier[], phases: AdoptionPhase[]): string {
+  const priceByTier = new Map(tiers.map((t) => [t.name, t.pricePerMonth]));
+
+  return phases
+    .map((phase) => {
+      const mrr = Object.entries(phase.tierCounts || {}).reduce(
+        (sum, [tierName, count]) => {
+          const price = priceByTier.get(tierName);
+          if (price === undefined) {
+            console.warn(
+              `computeMRR: tier "${tierName}" absent de pricingTiers, ignoré`,
+            );
+            return sum;
+          }
+          return sum + price * count;
+        },
+        0,
+      );
+      return `${phase.label}: $${mrr.toLocaleString("en-US")}/mo`;
+    })
+    .join(", ");
+}
+
+function formatPricingModel(tiers: PricingTier[]): string {
+  return tiers
+    .map((t) => `${t.name} — $${t.pricePerMonth}/mo: ${t.description}`)
+    .join(". ");
+}
+
+/**
+ * Passe d'auto-critique : un second appel Groq relit le draft comme le
+ * ferait un reviewer produit sceptique, et vérifie que CHAQUE feature sert
+ * bien le persona cible annoncé. Sans ça, un cluster regroupant des pain
+ * points au bord de la cohérence peut produire une idée "couteau suisse"
+ * mélangeant des capacités sans rapport (ex: idée "HouseDesk" générée le
+ * 2026-09-13 : éditeur AR + simulateur de sondages + analytics Segment-like
+ * pour un persona "développeur AR indépendant" qui n'a besoin que du
+ * premier). Le fix de fond est le clustering par tag IA (voir
+ * generate-clusters.ts) qui évite désormais de regrouper des pain points
+ * sans rapport — cette passe est le filet de sécurité côté génération.
+ */
+async function critiqueCoherence(
+  draft: Pick<SaaSIdeaDraft, "targetAudience" | "features">,
+): Promise<{ targetAudience: string; features: string[] }> {
+  const prompt = `You are a skeptical product reviewer. A SaaS idea has been drafted with this target audience and feature list:
+
+TARGET AUDIENCE: ${draft.targetAudience}
+
+FEATURES:
+${draft.features.map((f, i) => `${i + 1}. ${f}`).join("\n")}
+
+Check EVERY feature against the target audience: would this exact persona, in their day-to-day workflow, actually use it? A feature that clearly belongs to a different job/workflow than the stated persona (e.g. mixing AR asset editing with survey simulation with marketing analytics for one narrow persona) is INCOHERENT and must be removed or the persona must be broadened to genuinely cover it.
+
+Respond in JSON:
+{
+  "coherent": boolean,
+  "reasoning": "one sentence explaining your verdict",
+  "revisedTargetAudience": "same as input if coherent=true, otherwise a persona that genuinely covers every remaining feature",
+  "revisedFeatures": ["same list as input if coherent=true, otherwise the incoherent ones removed"]
+}`;
+
+  try {
+    const result = await generateJSON<{
+      coherent: boolean;
+      reasoning: string;
+      revisedTargetAudience?: string;
+      revisedFeatures?: string[];
+    }>(prompt, { temperature: 0.2, maxTokens: 1000 });
+
+    if (!result.coherent) {
+      console.log(`Idea coherence critique: ${result.reasoning}`);
+    }
+
+    return {
+      targetAudience: result.revisedTargetAudience || draft.targetAudience,
+      features:
+        result.revisedFeatures && result.revisedFeatures.length > 0
+          ? result.revisedFeatures
+          : draft.features,
+    };
+  } catch (error) {
+    console.error(
+      "Coherence critique failed, keeping draft unchanged:",
+      error,
+    );
+    return draft;
+  }
+}
+
 export async function generateSaaSIdea(cluster: Cluster): Promise<SaaSIdea> {
   // Sélectionne les meilleurs pain points (top 5)
   const topPainPoints = cluster.painPoints
@@ -20,9 +142,16 @@ export async function generateSaaSIdea(cluster: Cluster): Promise<SaaSIdea> {
     .slice(0, 5)
     .map((p, idx) => {
       const snippet = p.content.substring(0, 250).replace(/\n/g, " ");
+      // subreddit (reddit) ou tags (hn) selon la source — voir
+      // src/lib/db/schema.ts:PainPointMetadata.
+      const context =
+        (p.metadata.subreddit as string) ||
+        (Array.isArray(p.metadata.tags)
+          ? (p.metadata.tags as string[]).join(", ")
+          : "unknown");
       return `${idx + 1}. "${p.title}" (Score: ${p.painScore}/100)
    Context: ${snippet}...
-   Source: ${p.metadata.subreddit || "unknown"}`;
+   Source: ${context}`;
     })
     .join("\n\n");
 
@@ -32,23 +161,15 @@ export async function generateSaaSIdea(cluster: Cluster): Promise<SaaSIdea> {
     avgScore: cluster.avgPainScore,
     topScore: Math.max(...cluster.painPoints.map((p) => p.painScore)),
     keywords: cluster.keywords.slice(0, 5),
-    subreddits: [
-      ...new Set(
-        cluster.painPoints
-          .map((p) => p.metadata.subreddit as string)
-          .filter(Boolean),
-      ),
-    ],
   };
 
-  const prompt = `You are a SaaS product strategist analyzing REAL user pain points from Reddit. Based on the following cluster of related problems, generate ONE specific, actionable SaaS product idea.
+  const prompt = `You are a SaaS product strategist analyzing REAL user pain points scraped from Reddit and Hacker News. Based on the following cluster of related problems, generate ONE specific, actionable SaaS product idea.
 
 CLUSTER OVERVIEW:
 - Name: ${cluster.name}
 - Pain Points: ${stats.totalPoints} users
 - Avg Pain Score: ${stats.avgScore}/100 (Max: ${stats.topScore}/100)
 - Key Topics: ${stats.keywords.join(", ")}
-- Communities: ${stats.subreddits.join(", ")}
 
 TOP PAIN POINTS FROM REAL USERS:
 ${topPainPoints}
@@ -58,14 +179,23 @@ INSTRUCTIONS:
 - Focus on the EXACT problem these users describe.
 - Use the keywords and context from their messages.
 - Make it REALISTIC and buildable by a small team.
+- COHERENCE IS CRITICAL: pick ONE narrow target persona and make every single
+  feature something that exact persona would use in their actual workflow.
+  Do NOT combine capabilities that belong to different jobs/workflows just
+  because they came from the same cluster — if the pain points genuinely
+  describe different problems, focus the whole idea on the single strongest
+  one instead of stitching a "kitchen sink" product together.
 - Pricing should match the pain level (higher pain = higher willingness to pay).
+- Do not invent named competitors you are not confident are real — prefer
+  naming a category of alternative ("generic note-taking apps") over a
+  fabricated specific product name if unsure.
 
 Generate a JSON response with this EXACT structure:
 {
   "title": "Specific product name (not generic)",
   "tagline": "One compelling sentence that captures the core value",
   "description": "2-3 detailed paragraphs: (1) The exact problem from the pain points, (2) How your solution works, (3) Why it's better than existing alternatives. Reference the actual user frustrations.",
-  "targetAudience": "Very specific persona with job title, company size, and specific pain (e.g., 'SaaS founders at $10-50K MRR struggling with customer analytics')",
+  "targetAudience": "One narrow, specific persona with job title, company size, and specific pain (e.g., 'SaaS founders at $10-50K MRR struggling with customer analytics') — every feature below must serve THIS persona specifically",
   "features": [
     "Feature 1: Specific capability that solves the main pain point",
     "Feature 2: Another must-have based on user complaints",
@@ -73,8 +203,16 @@ Generate a JSON response with this EXACT structure:
     "Feature 4: Integration or workflow feature users mentioned",
     "Feature 5: Advanced capability for power users"
   ],
-  "pricingModel": "Detailed pricing with 3 tiers. Justify prices based on value delivered and pain score (${stats.avgScore}/100). Include what each tier includes.",
-  "estimatedMRR": "Realistic 12-month projection with breakdown: 'Month 1-3: $X (Beta), Month 4-6: $Y (Launch), Month 7-12: $Z (Growth)'. Include conversion assumptions.",
+  "pricingTiers": [
+    { "name": "<tier name>", "pricePerMonth": <number>, "description": "what's included" },
+    { "name": "<tier name>", "pricePerMonth": <number>, "description": "what's included" },
+    { "name": "<tier name>", "pricePerMonth": <number>, "description": "what's included" }
+  ],
+  "adoptionPhases": [
+    { "label": "Month 1-3 (Beta)", "tierCounts": { "<tier name>": <number>, ... } },
+    { "label": "Month 4-6 (Launch)", "tierCounts": { "<tier name>": <number>, ... } },
+    { "label": "Month 7-12 (Growth)", "tierCounts": { "<tier name>": <number>, ... } }
+  ],
   "competitors": [
     "Direct Competitor 1: What they do and their weakness",
     "Direct Competitor 2: What they do and their weakness",
@@ -84,22 +222,47 @@ Generate a JSON response with this EXACT structure:
 }
 
 IMPORTANT:
+- tierCounts keys MUST exactly match a "name" in pricingTiers — do not invent tier names in adoptionPhases that don't appear in pricingTiers.
+- Prices and adoption counts MUST be numbers you choose specifically for THIS
+  cluster (avg pain score ${stats.avgScore}/100, ${stats.totalPoints} pain
+  points) — every field above marked <number>/<tier name> is a placeholder
+  you must replace with your own reasoning, never reuse round numbers like
+  29/99/299 or adoption counts like 20/60/150 out of habit; a niche/low-pain
+  cluster should look financially different from a broad/high-pain one.
 - Reference the actual keywords: ${stats.keywords.join(", ")}
-- Address the subreddits context: ${stats.subreddits.join(", ")}
 - Make pricing proportional to pain score (${stats.avgScore}/100)
 - NO generic fluff or marketing speak
 - Be brutally specific and actionable`;
 
   try {
-    const idea = await generateJSON<SaaSIdea>(prompt, {
+    const draft = await generateJSON<SaaSIdeaDraft>(prompt, {
       temperature: 0.8,
+      maxTokens: 3000,
     });
 
-    if (!idea.title || !idea.tagline || !idea.description) {
+    if (!draft.title || !draft.tagline || !draft.description) {
       throw new Error("Incomplete idea generated");
     }
 
-    return idea;
+    const { targetAudience, features } = await critiqueCoherence({
+      targetAudience: draft.targetAudience,
+      features: draft.features,
+    });
+
+    return {
+      title: draft.title,
+      tagline: draft.tagline,
+      description: draft.description,
+      targetAudience,
+      features,
+      pricingModel: formatPricingModel(draft.pricingTiers || []),
+      estimatedMRR: computeMRR(
+        draft.pricingTiers || [],
+        draft.adoptionPhases || [],
+      ),
+      competitors: draft.competitors,
+      moat: draft.moat,
+    };
   } catch (error) {
     console.error("Error generating SaaS idea:", error);
 
