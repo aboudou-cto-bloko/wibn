@@ -1,7 +1,7 @@
 import { inngest } from "@/lib/inngest/client";
 import { db } from "@/lib/db";
 import { clusters, ideas, painPoints } from "@/lib/db/schema";
-import { generateSaaSIdea } from "@/lib/ai/idea-generator";
+import { generateSaaSIdea, ExistingIdeaRef } from "@/lib/ai/idea-generator";
 import { nanoid } from "nanoid";
 import { desc, eq, isNull } from "drizzle-orm";
 import { getSettings } from "@/lib/settings";
@@ -124,8 +124,23 @@ export const generateIdeasFunction = inngest.createFunction(
       };
     }
 
+    // Idées déjà en base : passées à generateSaaSIdea pour éviter de
+    // sauvegarder un quasi-doublon (deux clusters différents peuvent
+    // décrire le même produit sous-jacent). Voir checkDuplicate dans
+    // idea-generator.ts.
+    const existingIdeas = await step.run("fetch-existing-ideas", async () => {
+      const rows = await db
+        .select({ title: ideas.title, tagline: ideas.tagline })
+        .from(ideas);
+      return rows as ExistingIdeaRef[];
+    });
+
     const generatedIdeas = await step.run("generate-ideas", async () => {
       const ideasArray = [];
+      // Grossit au fil du batch pour éviter aussi les doublons ENTRE
+      // clusters traités dans ce même run (existingIdeas ne voit que ce qui
+      // était déjà sauvegardé au début du run).
+      const knownIdeas = [...existingIdeas];
 
       for (const { cluster, painPoints: clusterPoints } of clustersToProcess) {
         try {
@@ -140,16 +155,28 @@ export const generateIdeasFunction = inngest.createFunction(
             continue;
           }
 
-          const idea = await generateSaaSIdea({
-            id: cluster.id,
-            name: cluster.name || "Unnamed Cluster",
-            description: cluster.description || "",
-            painPoints: clusterPoints,
-            avgPainScore: cluster.avgPainScore || 0,
-            keywords: (cluster.keywords as string[]) || [],
-          });
+          const idea = await generateSaaSIdea(
+            {
+              id: cluster.id,
+              name: cluster.name || "Unnamed Cluster",
+              description: cluster.description || "",
+              painPoints: clusterPoints,
+              avgPainScore: cluster.avgPainScore || 0,
+              keywords: (cluster.keywords as string[]) || [],
+            },
+            knownIdeas,
+          );
 
-          if (!idea || !idea.title) {
+          if (!idea) {
+            // null = doublon détecté (checkDuplicate) — pas une erreur,
+            // juste rien à sauvegarder pour ce cluster.
+            console.log(
+              `Idea for cluster ${cluster.id} skipped (duplicate)`,
+            );
+            continue;
+          }
+
+          if (!idea.title) {
             console.warn(
               `Invalid idea generated for cluster ${cluster.id}, skipping`,
             );
@@ -160,6 +187,7 @@ export const generateIdeasFunction = inngest.createFunction(
             clusterId: cluster.id,
             idea,
           });
+          knownIdeas.push({ title: idea.title, tagline: idea.tagline });
 
           console.log(
             `Successfully generated idea: ${idea.title} for cluster ${cluster.id}`,

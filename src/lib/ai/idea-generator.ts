@@ -135,7 +135,75 @@ Respond in JSON:
   }
 }
 
-export async function generateSaaSIdea(cluster: Cluster): Promise<SaaSIdea> {
+export interface ExistingIdeaRef {
+  title: string;
+  tagline: string | null;
+}
+
+/**
+ * Vérifie que le draft n'est pas juste une resucée d'une idée déjà générée
+ * (deux clusters différents peuvent décrire le même produit sous-jacent,
+ * ou le même cluster peut être re-tagué légèrement différemment d'un run
+ * à l'autre). Sans ce filet, la table `ideas` accumule des doublons quasi
+ * identiques au fil des runs successifs de scraping/clustering.
+ */
+async function checkDuplicate(
+  draft: Pick<SaaSIdeaDraft, "title" | "tagline" | "description">,
+  existingIdeas: ExistingIdeaRef[],
+): Promise<{ isDuplicate: boolean; reasoning?: string }> {
+  if (existingIdeas.length === 0) return { isDuplicate: false };
+
+  const existingBlock = existingIdeas
+    .map((idea, i) => `${i + 1}. ${idea.title} — ${idea.tagline || ""}`)
+    .join("\n");
+
+  const prompt = `You are checking a NEW SaaS idea draft against a list of ALREADY GENERATED ideas, to avoid saving near-duplicates.
+
+NEW IDEA:
+Title: ${draft.title}
+Tagline: ${draft.tagline}
+Description: ${draft.description.slice(0, 400)}
+
+ALREADY GENERATED IDEAS:
+${existingBlock}
+
+Is the new idea substantially the SAME product/solution as one of the existing ones (same core mechanism AND same target user — not just the same broad category)? Being in the same general space (e.g. two different "email tools") is NOT enough to count as duplicate — only flag it if a user reading both would think "wait, isn't this the same thing I just saw?".
+
+Respond in JSON:
+{ "isDuplicate": boolean, "matchedTitle": "title of the match, or null", "reasoning": "one sentence" }`;
+
+  try {
+    const result = await generateJSON<{
+      isDuplicate: boolean;
+      matchedTitle?: string | null;
+      reasoning: string;
+    }>(prompt, { temperature: 0.1, maxTokens: 300 });
+
+    if (result.isDuplicate) {
+      console.log(
+        `Idea duplicate check: "${draft.title}" flagged as duplicate of "${result.matchedTitle}" — ${result.reasoning}`,
+      );
+    }
+
+    return { isDuplicate: result.isDuplicate, reasoning: result.reasoning };
+  } catch (error) {
+    console.error(
+      "Duplicate check failed, keeping the idea (fail-open):",
+      error,
+    );
+    return { isDuplicate: false };
+  }
+}
+
+/**
+ * Retourne `null` quand l'idée générée est un doublon d'une idée déjà en
+ * base (voir checkDuplicate) — l'appelant (generate-ideas.ts) doit alors
+ * ignorer ce cluster plutôt que sauvegarder l'idée.
+ */
+export async function generateSaaSIdea(
+  cluster: Cluster,
+  existingIdeas: ExistingIdeaRef[] = [],
+): Promise<SaaSIdea | null> {
   // Sélectionne les meilleurs pain points (top 5)
   const topPainPoints = cluster.painPoints
     .sort((a, b) => b.painScore - a.painScore)
@@ -242,6 +310,11 @@ IMPORTANT:
 
     if (!draft.title || !draft.tagline || !draft.description) {
       throw new Error("Incomplete idea generated");
+    }
+
+    const { isDuplicate } = await checkDuplicate(draft, existingIdeas);
+    if (isDuplicate) {
+      return null;
     }
 
     const { targetAudience, features } = await critiqueCoherence({
