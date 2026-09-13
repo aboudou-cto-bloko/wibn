@@ -8,18 +8,26 @@ import {
   categoryCreateSchema,
   categoryUpdateSchema,
   categoryDeleteQuerySchema,
+  sourceTypeSchema,
   parseJsonBody,
   parseQuery,
 } from "@/lib/validation/admin";
 
 export const revalidate = 0;
 
-// GET - Liste toutes les catégories
-export const GET = withAdmin(async () => {
+// GET - Liste les catégories, filtrable par source (?source=reddit|hn)
+export const GET = withAdmin(async (request) => {
   try {
+    const { searchParams } = new URL(request.url);
+    const sourceParam = searchParams.get("source");
+    const source = sourceParam
+      ? sourceTypeSchema.parse(sourceParam)
+      : undefined;
+
     const categories = await db
       .select()
       .from(scrapingCategories)
+      .where(source ? eq(scrapingCategories.source, source) : undefined)
       .orderBy(scrapingCategories.isDefault, scrapingCategories.name);
 
     return NextResponse.json({
@@ -27,7 +35,8 @@ export const GET = withAdmin(async () => {
       categories: categories.map((c) => ({
         id: c.id,
         name: c.name,
-        subreddits: c.subreddits,
+        source: c.source,
+        targets: c.targets,
         isDefault: c.isDefault,
       })),
     });
@@ -45,14 +54,15 @@ export const POST = withAdmin(async (request) => {
   try {
     const parsed = await parseJsonBody(request, categoryCreateSchema);
     if ("error" in parsed) return parsed.error;
-    const { name, subreddits } = parsed.data;
+    const { name, source, targets } = parsed.data;
 
     const [newCategory] = await db
       .insert(scrapingCategories)
       .values({
         id: nanoid(),
         name,
-        subreddits,
+        source,
+        targets,
         isDefault: false,
       })
       .returning();
@@ -67,18 +77,20 @@ export const POST = withAdmin(async (request) => {
   }
 });
 
-// PUT - Mettre à jour une catégorie
+// PUT - Mettre à jour une catégorie (le champ `source` n'est pas modifiable
+// après création — les targets n'ont de sens que dans le contexte de la
+// source d'origine)
 export const PUT = withAdmin(async (request) => {
   try {
     const parsed = await parseJsonBody(request, categoryUpdateSchema);
     if ("error" in parsed) return parsed.error;
-    const { id, name, subreddits } = parsed.data;
+    const { id, name, targets } = parsed.data;
 
     const [updated] = await db
       .update(scrapingCategories)
       .set({
         ...(name !== undefined && { name }),
-        ...(subreddits !== undefined && { subreddits }),
+        ...(targets !== undefined && { targets }),
         updatedAt: new Date(),
       })
       .where(eq(scrapingCategories.id, id))

@@ -2,7 +2,7 @@ import { eq } from "drizzle-orm";
 import { inngest } from "@/lib/inngest/client";
 import { db } from "@/lib/db";
 import { painPoints, scrapingJobs } from "@/lib/db/schema";
-import { scrapeReddit } from "@/lib/scrapers/reddit-scraper";
+import { scrapeHackerNews } from "@/lib/scrapers/hn-scraper";
 import {
   scorePainPoint,
   filterByMinScore,
@@ -12,12 +12,12 @@ import {
 import { getSettings } from "@/lib/settings";
 import { nanoid } from "nanoid";
 
-export const scrapeRedditFunction = inngest.createFunction(
+export const scrapeHnFunction = inngest.createFunction(
   {
-    id: "scrape-reddit",
-    name: "Scrape Reddit for Pain Points",
+    id: "scrape-hn",
+    name: "Scrape Hacker News for Pain Points",
   },
-  { event: "scraping/reddit.trigger" },
+  { event: "scraping/hn.trigger" },
   async ({ event, step }) => {
     const settings = await step.run("check-settings", async () => {
       return await getSettings();
@@ -30,30 +30,32 @@ export const scrapeRedditFunction = inngest.createFunction(
       };
     }
 
-    const { subreddits, timeframe = "week" } = event.data;
+    const { queries, minPoints = 20 } = event.data;
     // Le jobId est fourni par l'appelant (src/app/api/admin/scrape/route.ts)
-    // pour permettre à l'UI de suivre ce job précis dès le déclenchement
-    // (polling GET /api/admin/jobs?id=), au lieu d'en générer un nouveau ici.
+    // pour permettre à l'UI de suivre ce job précis dès le déclenchement,
+    // au lieu d'en générer un nouveau ici (voir scrape-reddit.ts, même
+    // convention).
     const jobId: string = event.data.jobId || nanoid();
 
     // Étape 1 : Créer le job
     await step.run("create-job", async () => {
       await db.insert(scrapingJobs).values({
         id: jobId,
-        source: "reddit",
+        source: "hn",
         status: "running",
-        config: { subreddits, timeframe },
+        config: { queries, minPoints },
         startedAt: new Date(),
       });
     });
 
-    // Étape 2 : Scraper Reddit avec maxPostsPerSubreddit des settings
+    // Étape 2 : Scraper Hacker News avec maxPostsPerSubreddit des settings
+    // comme limite par requête (même réglage que Reddit, réutilisé tel
+    // quel plutôt que d'ajouter un champ settings dédié).
     const rawPainPoints = await step.run("scrape-posts", async () => {
-      return await scrapeReddit({
-        subreddits,
-        timeframe,
+      return await scrapeHackerNews({
+        queries,
         limit: settings.maxPostsPerSubreddit,
-        minScore: 20,
+        minPoints,
       });
     });
 
@@ -96,7 +98,7 @@ export const scrapeRedditFunction = inngest.createFunction(
             .insert(painPoints)
             .values({
               id: nanoid(),
-              source: "reddit",
+              source: "hn",
               sourceId: point.sourceId,
               title: point.title,
               content: point.content,
@@ -125,8 +127,8 @@ export const scrapeRedditFunction = inngest.createFunction(
           painPointsFound: savedCount,
           completedAt: new Date(),
           config: {
-            subreddits,
-            timeframe,
+            queries,
+            minPoints,
             settingsUsed: {
               maxPostsPerSubreddit: settings.maxPostsPerSubreddit,
               minPainScore: settings.minPainScore,
@@ -144,7 +146,7 @@ export const scrapeRedditFunction = inngest.createFunction(
     return {
       jobId,
       painPointsFound: savedCount,
-      subreddits,
+      queries,
       settingsUsed: {
         maxPostsPerSubreddit: settings.maxPostsPerSubreddit,
         minPainScore: settings.minPainScore,

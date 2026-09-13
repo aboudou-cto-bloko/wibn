@@ -39,6 +39,9 @@ export type ScrapingJobConfig = {
   subreddits?: string[];
   timeframe?: string;
   limit?: number;
+  // Hacker News (source "hn") : requêtes de recherche Algolia + seuil de points.
+  queries?: string[];
+  minPoints?: number;
   [key: string]: unknown;
 };
 
@@ -293,7 +296,11 @@ export const scrapingCategories = pgTable(
   {
     id: text("id").primaryKey(),
     name: text("name").notNull(),
-    subreddits: jsonb("subreddits").$type<string[]>().notNull(),
+    source: sourceEnum("source").default("reddit").notNull(),
+    // Noms de subreddits pour source="reddit", requêtes de recherche
+    // Algolia pour source="hn". Anciennement "subreddits" (colonne
+    // renommée — voir drizzle/0007_*.sql).
+    targets: jsonb("targets").$type<string[]>().notNull(),
     isDefault: boolean("is_default").default(false),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
@@ -301,6 +308,7 @@ export const scrapingCategories = pgTable(
   (table) => {
     return {
       nameIdx: index("scraping_categories_name_idx").on(table.name),
+      sourceIdx: index("scraping_categories_source_idx").on(table.source),
     };
   },
 );

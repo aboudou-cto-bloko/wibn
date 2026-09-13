@@ -51,17 +51,20 @@ export function parseQuery<T extends z.ZodTypeAny>(
 // Convention projet : jamais de body/query non validé au-delà de cette limite.
 
 const nonEmptyString = z.string().trim().min(1);
-const subredditList = z.array(nonEmptyString).min(1);
+const targetList = z.array(nonEmptyString).min(1);
+export const sourceTypeSchema = z.enum(["reddit", "hn"]);
 
 export const categoryCreateSchema = z.object({
   name: nonEmptyString,
-  subreddits: subredditList,
+  // reddit: noms de subreddits. hn: requêtes de recherche Algolia.
+  source: sourceTypeSchema.default("reddit"),
+  targets: targetList,
 });
 
 export const categoryUpdateSchema = z.object({
   id: nonEmptyString,
   name: nonEmptyString.optional(),
-  subreddits: subredditList.optional(),
+  targets: targetList.optional(),
 });
 
 export const categoryDeleteQuerySchema = z.object({
@@ -86,17 +89,28 @@ export const settingsPatchSchema = z
 
 export const scrapeBodySchema = z
   .object({
-    subreddits: subredditList.optional(),
-    // Ids de src/lib/db/schema.ts:scrapingCategories (catégories gérées dans
-    // /admin/scraping), pas les clés statiques de RECOMMENDED_SUBREDDITS.
+    // reddit : noms de subreddits directs (sans passer par une catégorie).
+    subreddits: targetList.optional(),
+    // hn : requêtes de recherche directes (sans passer par une catégorie).
+    queries: targetList.optional(),
+    // Ids de src/lib/db/schema.ts:scrapingCategories — la source est déduite
+    // de la catégorie elle-même (colonne `source`), pas déclarée séparément.
     categories: z.array(nonEmptyString).min(1).optional(),
   })
-  .refine((data) => data.subreddits || data.categories, {
-    message: "subreddits ou categories requis",
+  .refine((data) => data.subreddits || data.queries || data.categories, {
+    message: "subreddits, queries ou categories requis",
   });
 
 export const painPointsQuerySchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
   limit: z.coerce.number().int().min(1).max(100).default(20),
   minScore: z.coerce.number().int().min(0).max(100).default(0),
+  source: sourceTypeSchema.optional(),
+});
+
+export const jobsQuerySchema = z.object({
+  id: nonEmptyString.optional(),
+  page: z.coerce.number().int().min(1).default(1),
+  limit: z.coerce.number().int().min(1).max(100).default(10),
+  source: sourceTypeSchema.optional(),
 });

@@ -6,7 +6,7 @@ export interface DashboardStats {
   filtered: number;
   avgScore: number;
   topSources: {
-    sourceId: string;
+    source: string;
     count: number;
     avgScore: number;
   }[];
@@ -76,16 +76,41 @@ export interface ClusterCardProps {
   cluster: ClusterWithStats;
 }
 
+export type ScrapingSource = "reddit" | "hn";
+
 export interface ScrapingCategory {
   id: string;
   name: string;
-  subreddits: string[];
+  source: ScrapingSource;
+  targets: string[];
   isDefault?: boolean;
 }
 
 export interface ScrapingResponse {
   message: string;
-  subreddits: string[];
+  source: ScrapingSource;
+  targets: string[];
+  jobId: string;
+}
+
+export interface ScrapingJobItem {
+  id: string;
+  source: ScrapingSource;
+  status: "pending" | "running" | "completed" | "failed";
+  painPointsFound: number | null;
+  errorMessage: string | null;
+  startedAt: string | null;
+  completedAt: string | null;
+  createdAt: string;
+}
+
+export interface JobsResponse {
+  jobs: ScrapingJobItem[];
+  pagination: {
+    page: number;
+    limit: number;
+    total: number;
+  };
 }
 
 export interface PainPointsResponse {

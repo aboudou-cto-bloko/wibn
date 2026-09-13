@@ -6,7 +6,8 @@ const DEFAULT_CATEGORIES = [
   {
     id: nanoid(),
     name: "Business & Entrepreneurship",
-    subreddits: [
+    source: "reddit" as const,
+    targets: [
       "Entrepreneur",
       "startups",
       "SaaS",
@@ -19,7 +20,8 @@ const DEFAULT_CATEGORIES = [
   {
     id: nanoid(),
     name: "Productivity & Self-Improvement",
-    subreddits: [
+    source: "reddit" as const,
+    targets: [
       "productivity",
       "getdisciplined",
       "selfimprovement",
@@ -31,7 +33,8 @@ const DEFAULT_CATEGORIES = [
   {
     id: nanoid(),
     name: "Marketing & Growth",
-    subreddits: [
+    source: "reddit" as const,
+    targets: [
       "marketing",
       "SEO",
       "socialmedia",
@@ -43,7 +46,8 @@ const DEFAULT_CATEGORIES = [
   {
     id: nanoid(),
     name: "Tech & Development",
-    subreddits: [
+    source: "reddit" as const,
+    targets: [
       "programming",
       "webdev",
       "Frontend",
@@ -56,18 +60,47 @@ const DEFAULT_CATEGORIES = [
   {
     id: nanoid(),
     name: "E-commerce",
-    subreddits: ["ecommerce", "shopify", "dropship", "AmazonSeller"],
+    source: "reddit" as const,
+    targets: ["ecommerce", "shopify", "dropship", "AmazonSeller"],
     isDefault: true,
   },
   {
     id: nanoid(),
     name: "Finance & Investing",
-    subreddits: [
+    source: "reddit" as const,
+    targets: [
       "personalfinance",
       "financialindependence",
       "investing",
       "Accounting",
     ],
+    isDefault: true,
+  },
+  // Hacker News : "targets" = requêtes de recherche Algolia (tags=story),
+  // pas des noms de subreddits.
+  {
+    id: nanoid(),
+    name: "HN: Frustrations & alternatives",
+    source: "hn" as const,
+    targets: [
+      "frustrated with",
+      "looking for an alternative to",
+      "why is there no tool for",
+    ],
+    isDefault: true,
+  },
+  {
+    id: nanoid(),
+    name: "HN: Ask HN — problèmes",
+    source: "hn" as const,
+    targets: ["Ask HN: how do you", "Ask HN: struggling with"],
+    isDefault: true,
+  },
+  {
+    id: nanoid(),
+    name: "HN: SaaS & tooling gaps",
+    source: "hn" as const,
+    targets: ["tired of paying for", "wish there was a tool"],
     isDefault: true,
   },
 ];
