@@ -1,4 +1,5 @@
 import { Suspense } from "react";
+import { cookies } from "next/headers";
 import {
   Card,
   CardContent,
@@ -16,6 +17,10 @@ async function getStats(): Promise<DashboardStats> {
   const res = await fetch(`${baseUrl}/api/admin/analytics`, {
     cache: "no-store",
     next: { revalidate: 0 },
+    // Le fetch d'un Server Component vers sa propre route API ne transmet
+    // pas automatiquement les cookies de la requête entrante — sans ça,
+    // withAdmin() ne voit aucune session et répond 401.
+    headers: { Cookie: (await cookies()).toString() },
   });
 
   if (!res.ok) {

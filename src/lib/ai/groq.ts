@@ -22,7 +22,7 @@ export async function generateCompletion(
   const settings = !options ? await getSettings() : null;
 
   const {
-    model = "llama-3.3-70b-versatile",
+    model = "openai/gpt-oss-120b",
     temperature = options?.temperature ?? settings?.aiTemperature ?? 0.7,
     maxTokens = options?.maxTokens ?? settings?.aiMaxTokens ?? 2000,
   } = options || {};
@@ -48,7 +48,7 @@ export async function generateJSON<T>(
   const settings = !options ? await getSettings() : null;
 
   const {
-    model = "llama-3.3-70b-versatile",
+    model = "openai/gpt-oss-120b",
     temperature = options?.temperature ?? settings?.aiTemperature ?? 0.3,
     maxTokens = options?.maxTokens ?? settings?.aiMaxTokens ?? 4000,
   } = options || {};

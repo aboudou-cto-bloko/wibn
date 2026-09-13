@@ -1,6 +1,7 @@
 export const dynamic = "force-dynamic";
 
 import { Suspense } from "react";
+import { cookies } from "next/headers";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Activity } from "lucide-react";
@@ -17,6 +18,8 @@ async function getPainPoints(page: number = 1): Promise<PainPointsResponse> {
     `${baseUrl}/api/admin/pain-points?page=${page}&limit=20`,
     {
       next: { revalidate: 60 }, // Cache pendant 60 secondes
+      // cf. src/app/admin/page.tsx : forward des cookies pour ce self-fetch.
+      headers: { Cookie: (await cookies()).toString() },
     },
   );
 

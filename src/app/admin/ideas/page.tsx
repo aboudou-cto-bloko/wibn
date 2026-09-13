@@ -1,4 +1,5 @@
 import { Suspense } from "react";
+import { cookies } from "next/headers";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Sparkles } from "lucide-react";
@@ -11,6 +12,8 @@ async function getIdeas(): Promise<IdeasResponse> {
   const res = await fetch(`${baseUrl}/api/admin/ideas`, {
     cache: "no-store",
     next: { revalidate: 0 },
+    // cf. src/app/admin/page.tsx : forward des cookies pour ce self-fetch.
+    headers: { Cookie: (await cookies()).toString() },
   });
 
   if (!res.ok) {
