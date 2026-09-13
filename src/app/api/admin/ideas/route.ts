@@ -1,19 +1,26 @@
 import { inngest } from "@/lib/inngest/client";
 import { db } from "@/lib/db";
 import { ideas } from "@/lib/db/schema";
-import { desc } from "drizzle-orm";
+import { asc, desc } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { withAdmin } from "@/lib/auth/api-middleware";
+import { ideasQuerySchema, parseQuery } from "@/lib/validation/admin";
 
 export const dynamic = "force-dynamic";
 
-// GET - Liste toutes les idées
-export const GET = withAdmin(async () => {
+// GET - Liste toutes les idées, triable par date (?sortDir=asc|desc)
+export const GET = withAdmin(async (request) => {
   try {
+    const { searchParams } = new URL(request.url);
+    const parsed = parseQuery(searchParams, ideasQuerySchema);
+    if ("error" in parsed) return parsed.error;
+    const { sortDir } = parsed.data;
+    const dir = sortDir === "asc" ? asc : desc;
+
     const allIdeas = await db
       .select()
       .from(ideas)
-      .orderBy(desc(ideas.createdAt))
+      .orderBy(dir(ideas.createdAt))
       .limit(50);
 
     return NextResponse.json({

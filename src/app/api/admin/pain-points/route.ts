@@ -1,6 +1,6 @@
 import { db } from "@/lib/db";
 import { painPoints } from "@/lib/db/schema";
-import { and, count, desc, eq, gte } from "drizzle-orm";
+import { and, asc, count, desc, eq, gte } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { withAdmin } from "@/lib/auth/api-middleware";
 import { painPointsQuerySchema, parseQuery } from "@/lib/validation/admin";
@@ -12,7 +12,7 @@ export const GET = withAdmin(async (request) => {
     const { searchParams } = new URL(request.url);
     const parsed = parseQuery(searchParams, painPointsQuerySchema);
     if ("error" in parsed) return parsed.error;
-    const { page, limit, minScore, source } = parsed.data;
+    const { page, limit, minScore, source, sortBy, sortDir } = parsed.data;
 
     const offset = (page - 1) * limit;
     // minScore > 0 uniquement : évite un filtre sur painScore NULL non désiré.
@@ -22,6 +22,12 @@ export const GET = withAdmin(async (request) => {
     ].filter((c) => c !== undefined);
     const where = conditions.length > 0 ? and(...conditions) : undefined;
 
+    const dir = sortDir === "asc" ? asc : desc;
+    const orderBy =
+      sortBy === "date"
+        ? [dir(painPoints.scrapedAt)]
+        : [dir(painPoints.painScore), desc(painPoints.scrapedAt)];
+
     // Le filtre est appliqué en SQL avant LIMIT/OFFSET (avant : filtré après
     // coup sur une seule page déjà tronquée, donc "total"/"hasMore" faux et
     // des résultats manquants dès que minScore excluait des lignes de la page).
@@ -30,7 +36,7 @@ export const GET = withAdmin(async (request) => {
         .select()
         .from(painPoints)
         .where(where)
-        .orderBy(desc(painPoints.painScore), desc(painPoints.scrapedAt))
+        .orderBy(...orderBy)
         .limit(limit)
         .offset(offset),
       db.select({ total: count() }).from(painPoints).where(where),

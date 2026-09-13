@@ -22,6 +22,7 @@ import {
   DialogTrigger,
   DialogFooter,
 } from "@/components/ui/dialog";
+import Link from "next/link";
 import { toast } from "sonner";
 import {
   Search,
@@ -34,7 +35,10 @@ import {
   X,
   Clock,
   XCircle,
+  ArrowRight,
 } from "lucide-react";
+import { GenerateClustersButton } from "@/components/admin/generate-clusters-button";
+import { GenerateIdeasButton } from "@/components/admin/generate-ideas-button";
 import type {
   ScrapingCategory,
   ScrapingSource,
@@ -572,6 +576,33 @@ export default function ScrapingPage() {
               )}
             </Button>
           </div>
+        </CardContent>
+      </Card>
+
+      {/* Pipeline : enchaîner clustering + génération d'idées sans changer
+          d'écran, une fois le scraping terminé (ou sur des pain points déjà
+          en base) */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Pipeline</CardTitle>
+          <CardDescription>
+            Étapes suivantes après le scraping — pas besoin de changer
+            d&apos;écran.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="flex flex-wrap items-center gap-3">
+          <GenerateClustersButton />
+          <GenerateIdeasButton variant="outline" />
+          <Button variant="ghost" size="sm" asChild>
+            <Link href="/admin/clusters">
+              View Clusters <ArrowRight className="w-3.5 h-3.5 ml-1" />
+            </Link>
+          </Button>
+          <Button variant="ghost" size="sm" asChild>
+            <Link href="/admin/ideas">
+              View Ideas <ArrowRight className="w-3.5 h-3.5 ml-1" />
+            </Link>
+          </Button>
         </CardContent>
       </Card>
 

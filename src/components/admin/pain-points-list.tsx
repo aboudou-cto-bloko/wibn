@@ -6,6 +6,13 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Activity, Loader2 } from "lucide-react";
 import { PainPointCard, PainPointCardSkeleton } from "./pain-point-card";
 import type { PainPointsResponse, PainPointItem } from "@/types/dashboard";
@@ -33,6 +40,8 @@ export function PainPointsList({
   const [loadingFilters, setLoadingFilters] = useState(false);
   const [source, setSource] = useState<"all" | "reddit" | "hn">("all");
   const [minScore, setMinScore] = useState(0);
+  const [sortBy, setSortBy] = useState<"score" | "date">("score");
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
 
   const isFirstRender = useRef(true);
 
@@ -40,14 +49,16 @@ export function PainPointsList({
     const params = new URLSearchParams({
       page: String(targetPage),
       limit: String(LIMIT),
+      sortBy,
+      sortDir,
     });
     if (source !== "all") params.set("source", source);
     if (minScore > 0) params.set("minScore", String(minScore));
     return `/api/admin/pain-points?${params.toString()}`;
   };
 
-  // Refetch depuis la page 1 quand un filtre change — pas au premier rendu
-  // (la page 1 non filtrée vient déjà du SSR).
+  // Refetch depuis la page 1 quand un filtre/tri change — pas au premier
+  // rendu (la page 1 non filtrée vient déjà du SSR).
   useEffect(() => {
     if (isFirstRender.current) {
       isFirstRender.current = false;
@@ -74,7 +85,7 @@ export function PainPointsList({
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [source, minScore]);
+  }, [source, minScore, sortBy, sortDir]);
 
   const loadMore = async () => {
     setLoadingMore(true);
@@ -118,6 +129,27 @@ export function PainPointsList({
             className="w-20"
           />
         </div>
+        <Select
+          value={`${sortBy}:${sortDir}`}
+          onValueChange={(v) => {
+            const [by, dir] = v.split(":") as [
+              "score" | "date",
+              "asc" | "desc",
+            ];
+            setSortBy(by);
+            setSortDir(dir);
+          }}
+        >
+          <SelectTrigger size="sm" className="w-[180px]">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="score:desc">Highest score</SelectItem>
+            <SelectItem value="score:asc">Lowest score</SelectItem>
+            <SelectItem value="date:desc">Newest first</SelectItem>
+            <SelectItem value="date:asc">Oldest first</SelectItem>
+          </SelectContent>
+        </Select>
         <span className="text-sm text-muted-foreground">
           {total} pain point{total === 1 ? "" : "s"}
         </span>

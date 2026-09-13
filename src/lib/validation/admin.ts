@@ -101,11 +101,19 @@ export const scrapeBodySchema = z
     message: "subreddits, queries ou categories requis",
   });
 
+const sortDirectionSchema = z.enum(["asc", "desc"]).default("desc");
+
 export const painPointsQuerySchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
   limit: z.coerce.number().int().min(1).max(100).default(20),
   minScore: z.coerce.number().int().min(0).max(100).default(0),
   source: sourceTypeSchema.optional(),
+  sortBy: z.enum(["score", "date"]).default("score"),
+  sortDir: sortDirectionSchema,
+});
+
+export const ideasQuerySchema = z.object({
+  sortDir: sortDirectionSchema, // trie par date de création (seul tri dispo)
 });
 
 export const jobsQuerySchema = z.object({
