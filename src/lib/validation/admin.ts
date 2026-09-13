@@ -1,6 +1,5 @@
 import { z } from "zod";
 import { NextResponse } from "next/server";
-import { RECOMMENDED_SUBREDDITS } from "@/lib/scrapers/reddit-scraper";
 
 /**
  * Parse et valide le body JSON d'une requête contre un schéma Zod.
@@ -85,15 +84,12 @@ export const settingsPatchSchema = z
   })
   .partial();
 
-type CategoryKey = keyof typeof RECOMMENDED_SUBREDDITS;
-const knownCategory = z.enum(
-  Object.keys(RECOMMENDED_SUBREDDITS) as [CategoryKey, ...CategoryKey[]],
-);
-
 export const scrapeBodySchema = z
   .object({
     subreddits: subredditList.optional(),
-    categories: z.array(knownCategory).min(1).optional(),
+    // Ids de src/lib/db/schema.ts:scrapingCategories (catégories gérées dans
+    // /admin/scraping), pas les clés statiques de RECOMMENDED_SUBREDDITS.
+    categories: z.array(nonEmptyString).min(1).optional(),
   })
   .refine((data) => data.subreddits || data.categories, {
     message: "subreddits ou categories requis",
