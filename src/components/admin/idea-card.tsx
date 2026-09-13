@@ -1,3 +1,4 @@
+import Link from "next/link";
 import {
   Card,
   CardContent,
@@ -8,7 +9,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ExternalLink, Users, DollarSign } from "lucide-react";
+import { Users, DollarSign } from "lucide-react";
 import type { IdeaCardProps } from "@/types/dashboard";
 
 export function IdeaCard({ idea }: IdeaCardProps) {
@@ -79,11 +80,8 @@ export function IdeaCard({ idea }: IdeaCardProps) {
 
         {/* Actions */}
         <div className="flex items-center gap-2 pt-2">
-          <Button size="sm" className="flex-1" variant="outline">
-            View Details
-          </Button>
-          <Button size="sm" variant="outline" className="shrink-0">
-            <ExternalLink className="w-4 h-4" />
+          <Button size="sm" className="flex-1" variant="outline" asChild>
+            <Link href={`/admin/ideas/${idea.id}`}>View Details</Link>
           </Button>
         </div>
       </CardContent>

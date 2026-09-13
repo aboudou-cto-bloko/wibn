@@ -42,12 +42,18 @@ export const GET = withAdmin(async () => {
   }
 });
 
-// POST - Trigger idea generation job
-export const POST = withAdmin(async () => {
+// POST - Trigger idea generation job. Body { clusterId? } optionnel : cible
+// un cluster précis (bouton sur /admin/clusters/[id]) au lieu du batch
+// global des clusters sans idée.
+export const POST = withAdmin(async (request) => {
   try {
+    const body = await request.json().catch(() => ({}));
+    const clusterId =
+      typeof body?.clusterId === "string" ? body.clusterId : undefined;
+
     await inngest.send({
       name: "ideas/generate",
-      data: {},
+      data: clusterId ? { clusterId } : {},
     });
 
     return NextResponse.json({ message: "Idea generation job started" });

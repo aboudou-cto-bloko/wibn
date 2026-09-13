@@ -1,9 +1,15 @@
+import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ExternalLink } from "lucide-react";
 import type { PainPointCardProps } from "@/types/dashboard";
+
+const SOURCE_LABELS: Record<string, string> = {
+  reddit: "Reddit",
+  hn: "HN",
+};
 
 export function PainPointCard({ painPoint }: PainPointCardProps) {
   const scoreColor =
@@ -22,8 +28,8 @@ export function PainPointCard({ painPoint }: PainPointCardProps) {
               {painPoint.title}
             </CardTitle>
             <div className="flex items-center gap-2 text-xs text-muted-foreground">
-              <Badge variant="outline" className="capitalize">
-                {painPoint.source}
+              <Badge variant="outline">
+                {SOURCE_LABELS[painPoint.source] || painPoint.source}
               </Badge>
               <span>by {painPoint.author || "unknown"}</span>
             </div>
@@ -61,9 +67,14 @@ export function PainPointCard({ painPoint }: PainPointCardProps) {
             </Button>
           )}
           {painPoint.clusterId && (
-            <Badge variant="secondary" className="text-xs">
-              Clustered
-            </Badge>
+            <Link href={`/admin/clusters/${painPoint.clusterId}`}>
+              <Badge
+                variant="secondary"
+                className="text-xs hover:bg-primary/10 transition-colors"
+              >
+                Clustered
+              </Badge>
+            </Link>
           )}
         </div>
       </CardContent>

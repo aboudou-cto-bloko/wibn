@@ -1,5 +1,6 @@
 import { Suspense } from "react";
 import { cookies } from "next/headers";
+import Link from "next/link";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Layers } from "lucide-react";
@@ -7,6 +8,7 @@ import {
   ClusterCard,
   ClusterCardSkeleton,
 } from "@/components/admin/cluster-card";
+import { GenerateClustersButton } from "@/components/admin/generate-clusters-button";
 import type { ClustersResponse } from "@/types/dashboard";
 
 async function getClusters(): Promise<ClustersResponse> {
@@ -38,7 +40,9 @@ async function ClustersList() {
           <p className="text-sm text-muted-foreground mb-4">
             Scrape pain points first, then cluster them by similarity
           </p>
-          <Button>Start Scraping</Button>
+          <Button asChild>
+            <Link href="/admin/scraping">Start Scraping</Link>
+          </Button>
         </CardContent>
       </Card>
     );
@@ -77,10 +81,7 @@ export default function ClustersPage() {
             Related pain points grouped by similarity
           </p>
         </div>
-        <Button>
-          <Layers className="w-4 h-4 mr-2" />
-          Generate Clusters
-        </Button>
+        <GenerateClustersButton />
       </div>
 
       {/* Clusters List avec Suspense */}

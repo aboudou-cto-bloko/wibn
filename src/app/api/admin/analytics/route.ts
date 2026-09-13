@@ -1,7 +1,7 @@
 import { db } from "@/lib/db";
 import { painPoints } from "@/lib/db/schema";
 import {
-  analyzePainPointSources,
+  analyzePainPointsByPlatform,
   groupByRecurringAuthors,
   filterByMinScore,
 } from "@/lib/scoring/pain-scorer";
@@ -22,6 +22,7 @@ export const GET = withAdmin(async () => {
 
     const scoredPoints = allPainPoints.map((p) => ({
       sourceId: p.sourceId,
+      source: p.source,
       title: p.title,
       content: p.content ?? "",
       url: p.url ?? "",
@@ -43,7 +44,7 @@ export const GET = withAdmin(async () => {
       total: allPainPoints.length,
       filtered: filtered.length,
       avgScore,
-      topSources: analyzePainPointSources(filtered).slice(0, 20),
+      topSources: analyzePainPointsByPlatform(filtered),
       recurringAuthors: groupByRecurringAuthors(filtered, 2).slice(0, 10),
       scoreDistribution: {
         excellent: filtered.filter((p) => p.painScore >= 80).length,

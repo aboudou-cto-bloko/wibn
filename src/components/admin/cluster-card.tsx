@@ -1,3 +1,4 @@
+import Link from "next/link";
 import {
   Card,
   CardContent,
@@ -8,7 +9,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { TrendingUp, Hash, ExternalLink } from "lucide-react";
+import { TrendingUp, Hash } from "lucide-react";
 import type { ClusterCardProps } from "@/types/dashboard";
 
 export function ClusterCard({ cluster }: ClusterCardProps) {
@@ -70,11 +71,8 @@ export function ClusterCard({ cluster }: ClusterCardProps) {
 
         {/* Actions */}
         <div className="flex items-center gap-2 pt-2">
-          <Button variant="outline" size="sm" className="flex-1">
-            View Details
-          </Button>
-          <Button variant="outline" size="sm" className="shrink-0">
-            <ExternalLink className="w-4 h-4" />
+          <Button variant="outline" size="sm" className="flex-1" asChild>
+            <Link href={`/admin/clusters/${cluster.id}`}>View Details</Link>
           </Button>
         </div>
       </CardContent>

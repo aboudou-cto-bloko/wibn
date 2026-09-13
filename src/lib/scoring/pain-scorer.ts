@@ -264,10 +264,10 @@ export function scorePainPoint(painPoint: RawPainPoint): ScoredPainPoint {
 /**
  * Filtre les pain points par score minimum
  */
-export function filterByMinScore(
-  painPoints: ScoredPainPoint[],
+export function filterByMinScore<T extends ScoredPainPoint>(
+  painPoints: T[],
   minScore: number = 40,
-): ScoredPainPoint[] {
+): T[] {
   return painPoints
     .filter((p) => p.painScore >= minScore)
     .sort((a, b) => b.painScore - a.painScore);
@@ -300,6 +300,37 @@ export function analyzePainPointSources(
       avgScore: Math.round((data.totalScore / data.count) * 10) / 10,
     }))
     .sort((a, b) => b.avgScore - a.avgScore);
+}
+
+/**
+ * Regroupe par plateforme (reddit/hn/...), pas par sourceId (id unique par
+ * post — voir analyzePainPointSources ci-dessus, qui donne donc toujours
+ * count=1 par entrée et n'est pas ce qu'on veut pour une vue "par source"
+ * dans le dashboard).
+ */
+export function analyzePainPointsByPlatform(
+  painPoints: (ScoredPainPoint & { source: string })[],
+): { source: string; count: number; avgScore: number }[] {
+  const platformMap = new Map<string, { count: number; totalScore: number }>();
+
+  painPoints.forEach((point) => {
+    const existing = platformMap.get(point.source) || {
+      count: 0,
+      totalScore: 0,
+    };
+    platformMap.set(point.source, {
+      count: existing.count + 1,
+      totalScore: existing.totalScore + point.painScore,
+    });
+  });
+
+  return Array.from(platformMap.entries())
+    .map(([source, data]) => ({
+      source,
+      count: data.count,
+      avgScore: Math.round((data.totalScore / data.count) * 10) / 10,
+    }))
+    .sort((a, b) => b.count - a.count);
 }
 
 /**

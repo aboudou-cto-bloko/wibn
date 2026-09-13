@@ -1,9 +1,9 @@
 import { Suspense } from "react";
 import { cookies } from "next/headers";
 import { Card, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { Sparkles } from "lucide-react";
 import { IdeaCard, IdeaCardSkeleton } from "@/components/admin/idea-card";
+import { GenerateIdeasButton } from "@/components/admin/generate-ideas-button";
 import type { IdeasResponse } from "@/types/dashboard";
 
 async function getIdeas(): Promise<IdeasResponse> {
@@ -35,7 +35,7 @@ async function IdeasList() {
           <p className="text-sm text-muted-foreground mb-4">
             Generate clusters first, then create ideas from them
           </p>
-          <Button>Generate Ideas</Button>
+          <GenerateIdeasButton />
         </CardContent>
       </Card>
     );
@@ -73,10 +73,7 @@ export default function IdeasPage() {
             SaaS ideas generated from pain point clusters
           </p>
         </div>
-        <Button>
-          <Sparkles className="w-4 h-4 mr-2" />
-          Generate More
-        </Button>
+        <GenerateIdeasButton variant="outline" />
       </div>
 
       {/* Ideas List avec Suspense */}

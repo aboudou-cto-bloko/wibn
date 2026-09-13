@@ -1,5 +1,6 @@
 import { Suspense } from "react";
 import { cookies } from "next/headers";
+import Link from "next/link";
 import {
   Card,
   CardContent,
@@ -7,9 +8,19 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Activity, Sparkles, Layers, TrendingUp } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import {
+  Activity,
+  Sparkles,
+  Layers,
+  TrendingUp,
+  Search,
+} from "lucide-react";
 import { StatCard, StatCardSkeleton } from "@/components/admin/stat-card";
 import type { DashboardStats } from "@/types/dashboard";
+
+const SOURCE_LABELS: Record<string, string> = { reddit: "Reddit", hn: "HN" };
 
 async function getStats(): Promise<DashboardStats> {
   const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3001";
@@ -96,21 +107,34 @@ async function DashboardStats() {
         {/* Top Sources */}
         <Card>
           <CardHeader>
-            <CardTitle>Top Sources</CardTitle>
-            <CardDescription>Highest scoring pain points</CardDescription>
+            <CardTitle>Sources</CardTitle>
+            <CardDescription>Pain points par plateforme</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="space-y-2">
-              {stats.topSources.slice(0, 5).map((source, idx) => (
-                <div
-                  key={source.sourceId}
-                  className="flex items-center justify-between text-sm"
-                >
-                  <span className="text-muted-foreground">#{idx + 1}</span>
-                  <span className="font-mono font-bold">{source.avgScore}</span>
-                </div>
-              ))}
-            </div>
+            {stats.topSources.length === 0 ? (
+              <p className="text-sm text-muted-foreground">
+                Aucune donnée pour l&apos;instant.
+              </p>
+            ) : (
+              <div className="space-y-3">
+                {stats.topSources.map((source) => (
+                  <div
+                    key={source.source}
+                    className="flex items-center justify-between text-sm"
+                  >
+                    <Badge variant="outline">
+                      {SOURCE_LABELS[source.source] || source.source}
+                    </Badge>
+                    <span className="text-muted-foreground">
+                      {source.count} posts
+                    </span>
+                    <span className="font-mono font-bold">
+                      {source.avgScore} avg
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>
@@ -145,11 +169,11 @@ function DashboardStatsLoading() {
         </Card>
         <Card>
           <CardHeader>
-            <CardTitle>Top Sources</CardTitle>
+            <CardTitle>Sources</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="space-y-2">
-              {[1, 2, 3, 4, 5].map((i) => (
+              {[1, 2].map((i) => (
                 <div key={i} className="h-4 bg-muted animate-pulse rounded" />
               ))}
             </div>
@@ -184,10 +208,25 @@ export default function AdminDashboard() {
             Common tasks for managing your pipeline
           </CardDescription>
         </CardHeader>
-        <CardContent className="space-y-2">
-          <p className="text-sm text-muted-foreground">
-            Use the sidebar to navigate: Scraping → Clusters → Ideas
-          </p>
+        <CardContent className="flex flex-wrap gap-2">
+          <Button variant="outline" asChild>
+            <Link href="/admin/scraping">
+              <Search className="w-4 h-4 mr-2" />
+              Scraping
+            </Link>
+          </Button>
+          <Button variant="outline" asChild>
+            <Link href="/admin/clusters">
+              <Layers className="w-4 h-4 mr-2" />
+              Clusters
+            </Link>
+          </Button>
+          <Button variant="outline" asChild>
+            <Link href="/admin/ideas">
+              <Sparkles className="w-4 h-4 mr-2" />
+              Ideas
+            </Link>
+          </Button>
         </CardContent>
       </Card>
     </div>

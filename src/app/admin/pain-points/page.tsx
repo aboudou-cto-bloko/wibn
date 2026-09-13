@@ -2,26 +2,19 @@ export const dynamic = "force-dynamic";
 
 import { Suspense } from "react";
 import { cookies } from "next/headers";
-import { Card, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { Activity } from "lucide-react";
-import {
-  PainPointCard,
-  PainPointCardSkeleton,
-} from "@/components/admin/pain-point-card";
+import { PainPointCardSkeleton } from "@/components/admin/pain-point-card";
+import { PainPointsList } from "@/components/admin/pain-points-list";
 import type { PainPointsResponse } from "@/types/dashboard";
 
-async function getPainPoints(page: number = 1): Promise<PainPointsResponse> {
+async function getPainPoints(): Promise<PainPointsResponse> {
   const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3001";
 
-  const res = await fetch(
-    `${baseUrl}/api/admin/pain-points?page=${page}&limit=20`,
-    {
-      next: { revalidate: 60 }, // Cache pendant 60 secondes
-      // cf. src/app/admin/page.tsx : forward des cookies pour ce self-fetch.
-      headers: { Cookie: (await cookies()).toString() },
-    },
-  );
+  const res = await fetch(`${baseUrl}/api/admin/pain-points?page=1&limit=20`, {
+    next: { revalidate: 60 }, // Cache pendant 60 secondes
+    // cf. src/app/admin/page.tsx : forward des cookies pour ce self-fetch.
+    headers: { Cookie: (await cookies()).toString() },
+  });
 
   if (!res.ok) {
     throw new Error("Failed to fetch pain points");
@@ -30,40 +23,9 @@ async function getPainPoints(page: number = 1): Promise<PainPointsResponse> {
   return res.json();
 }
 
-async function PainPointsList({ page }: { page: number }) {
-  const data = await getPainPoints(page);
-
-  if (data.painPoints.length === 0) {
-    return (
-      <Card>
-        <CardContent className="py-12 text-center">
-          <Activity className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-          <h3 className="text-lg font-semibold mb-2">No pain points yet</h3>
-          <p className="text-sm text-muted-foreground mb-4">
-            Start by scraping Reddit communities
-          </p>
-          <Button>Start Scraping</Button>
-        </CardContent>
-      </Card>
-    );
-  }
-
-  return (
-    <>
-      <div className="grid gap-4 md:grid-cols-2">
-        {data.painPoints.map((point) => (
-          <PainPointCard key={point.id} painPoint={point} />
-        ))}
-      </div>
-
-      {/* Pagination */}
-      {data.pagination.hasMore && (
-        <div className="flex justify-center mt-6">
-          <Button variant="outline">Load More</Button>
-        </div>
-      )}
-    </>
-  );
+async function PainPointsSection() {
+  const data = await getPainPoints();
+  return <PainPointsList initialData={data} />;
 }
 
 function PainPointsListLoading() {
@@ -87,14 +49,14 @@ export default function PainPointsPage() {
             Pain Points
           </h1>
           <p className="text-muted-foreground mt-2">
-            Collected problems and frustrations from Reddit
+            Collected problems and frustrations from Reddit and Hacker News
           </p>
         </div>
       </div>
 
       {/* Pain Points List avec Suspense */}
       <Suspense fallback={<PainPointsListLoading />}>
-        <PainPointsList page={1} />
+        <PainPointsSection />
       </Suspense>
     </div>
   );

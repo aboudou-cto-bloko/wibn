@@ -17,7 +17,7 @@ export const generateIdeasFunction = inngest.createFunction(
     retries: 3,
   },
   { event: "ideas/generate" },
-  async ({ step }) => {
+  async ({ event, step }) => {
     const settings = await step.run("load-settings", async () => {
       return await getSettings();
     });
@@ -29,10 +29,15 @@ export const generateIdeasFunction = inngest.createFunction(
       };
     }
 
-    // Étape 1: Récupère les clusters sans idées
+    // clusterId optionnel : cible un cluster précis (bouton "Générer une
+    // idée pour ce cluster" sur /admin/clusters/[id]) au lieu du batch
+    // global des BATCH_SIZE clusters sans idée les mieux notés.
+    const targetClusterId: string | undefined = event.data?.clusterId;
+
+    // Étape 1: Récupère le(s) cluster(s) à traiter
     const clustersToProcess = await step.run("fetch-clusters", async () => {
       try {
-        const allClusters = await db
+        const query = db
           .select({
             id: clusters.id,
             name: clusters.name,
@@ -42,10 +47,14 @@ export const generateIdeasFunction = inngest.createFunction(
             painPointCount: clusters.painPointCount,
           })
           .from(clusters)
-          .leftJoin(ideas, eq(clusters.id, ideas.clusterId))
-          .where(isNull(ideas.clusterId))
-          .orderBy(desc(clusters.avgPainScore))
-          .limit(BATCH_SIZE);
+          .leftJoin(ideas, eq(clusters.id, ideas.clusterId));
+
+        const allClusters = targetClusterId
+          ? await query.where(eq(clusters.id, targetClusterId)).limit(1)
+          : await query
+              .where(isNull(ideas.clusterId))
+              .orderBy(desc(clusters.avgPainScore))
+              .limit(BATCH_SIZE);
 
         console.log(`Found ${allClusters.length} clusters without ideas`);
 

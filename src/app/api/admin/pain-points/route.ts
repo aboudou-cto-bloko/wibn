@@ -1,6 +1,6 @@
 import { db } from "@/lib/db";
 import { painPoints } from "@/lib/db/schema";
-import { count, desc, gte } from "drizzle-orm";
+import { and, count, desc, eq, gte } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { withAdmin } from "@/lib/auth/api-middleware";
 import { painPointsQuerySchema, parseQuery } from "@/lib/validation/admin";
@@ -12,11 +12,15 @@ export const GET = withAdmin(async (request) => {
     const { searchParams } = new URL(request.url);
     const parsed = parseQuery(searchParams, painPointsQuerySchema);
     if ("error" in parsed) return parsed.error;
-    const { page, limit, minScore } = parsed.data;
+    const { page, limit, minScore, source } = parsed.data;
 
     const offset = (page - 1) * limit;
     // minScore > 0 uniquement : évite un filtre sur painScore NULL non désiré.
-    const where = minScore > 0 ? gte(painPoints.painScore, minScore) : undefined;
+    const conditions = [
+      minScore > 0 ? gte(painPoints.painScore, minScore) : undefined,
+      source ? eq(painPoints.source, source) : undefined,
+    ].filter((c) => c !== undefined);
+    const where = conditions.length > 0 ? and(...conditions) : undefined;
 
     // Le filtre est appliqué en SQL avant LIMIT/OFFSET (avant : filtré après
     // coup sur une seule page déjà tronquée, donc "total"/"hasMore" faux et
