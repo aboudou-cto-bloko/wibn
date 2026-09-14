@@ -7,10 +7,12 @@ import { PainPointCardSkeleton } from "@/components/admin/pain-point-card";
 import { PainPointsList } from "@/components/admin/pain-points-list";
 import type { PainPointsResponse } from "@/types/dashboard";
 
-async function getPainPoints(): Promise<PainPointsResponse> {
+async function getPainPoints(jobId?: string): Promise<PainPointsResponse> {
   const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3001";
+  const params = new URLSearchParams({ page: "1", limit: "20" });
+  if (jobId) params.set("jobId", jobId);
 
-  const res = await fetch(`${baseUrl}/api/admin/pain-points?page=1&limit=20`, {
+  const res = await fetch(`${baseUrl}/api/admin/pain-points?${params}`, {
     next: { revalidate: 60 }, // Cache pendant 60 secondes
     // cf. src/app/admin/page.tsx : forward des cookies pour ce self-fetch.
     headers: { Cookie: (await cookies()).toString() },
@@ -23,9 +25,9 @@ async function getPainPoints(): Promise<PainPointsResponse> {
   return res.json();
 }
 
-async function PainPointsSection() {
-  const data = await getPainPoints();
-  return <PainPointsList initialData={data} />;
+async function PainPointsSection({ jobId }: { jobId?: string }) {
+  const data = await getPainPoints(jobId);
+  return <PainPointsList initialData={data} initialJobId={jobId} />;
 }
 
 function PainPointsListLoading() {
@@ -38,7 +40,13 @@ function PainPointsListLoading() {
   );
 }
 
-export default function PainPointsPage() {
+export default async function PainPointsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ jobId?: string }>;
+}) {
+  const { jobId } = await searchParams;
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -56,7 +64,7 @@ export default function PainPointsPage() {
 
       {/* Pain Points List avec Suspense */}
       <Suspense fallback={<PainPointsListLoading />}>
-        <PainPointsSection />
+        <PainPointsSection jobId={jobId} />
       </Suspense>
     </div>
   );

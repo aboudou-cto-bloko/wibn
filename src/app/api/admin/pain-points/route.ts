@@ -12,13 +12,15 @@ export const GET = withAdmin(async (request) => {
     const { searchParams } = new URL(request.url);
     const parsed = parseQuery(searchParams, painPointsQuerySchema);
     if ("error" in parsed) return parsed.error;
-    const { page, limit, minScore, source, sortBy, sortDir } = parsed.data;
+    const { page, limit, minScore, source, jobId, sortBy, sortDir } =
+      parsed.data;
 
     const offset = (page - 1) * limit;
     // minScore > 0 uniquement : évite un filtre sur painScore NULL non désiré.
     const conditions = [
       minScore > 0 ? gte(painPoints.painScore, minScore) : undefined,
       source ? eq(painPoints.source, source) : undefined,
+      jobId ? eq(painPoints.jobId, jobId) : undefined,
     ].filter((c) => c !== undefined);
     const where = conditions.length > 0 ? and(...conditions) : undefined;
 
@@ -53,6 +55,7 @@ export const GET = withAdmin(async (request) => {
         painScore: p.painScore,
         sourceScore: p.sourceScore,
         clusterId: p.clusterId,
+        jobId: p.jobId,
         scrapedAt: p.scrapedAt,
         metadata: p.metadata,
       })),

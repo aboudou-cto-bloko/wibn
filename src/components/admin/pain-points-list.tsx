@@ -2,8 +2,10 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -12,7 +14,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Activity, Loader2 } from "lucide-react";
+import { Activity, Loader2, X } from "lucide-react";
 import { PainPointCard, PainPointCardSkeleton } from "./pain-point-card";
 import type { PainPointsResponse, PainPointItem } from "@/types/dashboard";
 
@@ -21,14 +23,19 @@ const LIMIT = 20;
 /**
  * Rendu de la page 1 côté serveur (voir src/app/admin/pain-points/page.tsx),
  * puis prend le relais côté client pour un vrai "Load More" (paginé) et des
- * filtres source/score min — le paramètre `minScore` existait déjà côté API
- * mais n'était exposé nulle part dans l'UI.
+ * filtres source/score min/job — `minScore` et `jobId` existaient déjà côté
+ * API mais n'étaient exposés nulle part dans l'UI.
  */
 export function PainPointsList({
   initialData,
+  initialJobId,
 }: {
   initialData: PainPointsResponse;
+  /** Filtre "pain points de ce job précis" — arrivé via ?jobId= depuis le
+   * panneau Recent Jobs de /admin/scraping. */
+  initialJobId?: string;
 }) {
+  const router = useRouter();
   const [points, setPoints] = useState<PainPointItem[]>(
     initialData.painPoints,
   );
@@ -43,6 +50,7 @@ export function PainPointsList({
   const [minScore, setMinScore] = useState(0);
   const [sortBy, setSortBy] = useState<"score" | "date">("score");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
+  const [jobId, setJobId] = useState<string | undefined>(initialJobId);
 
   const isFirstRender = useRef(true);
 
@@ -55,7 +63,13 @@ export function PainPointsList({
     });
     if (source !== "all") params.set("source", source);
     if (minScore > 0) params.set("minScore", String(minScore));
+    if (jobId) params.set("jobId", jobId);
     return `/api/admin/pain-points?${params.toString()}`;
+  };
+
+  const clearJobFilter = () => {
+    setJobId(undefined);
+    router.replace("/admin/pain-points");
   };
 
   // Refetch depuis la page 1 quand un filtre/tri change — pas au premier
@@ -86,7 +100,7 @@ export function PainPointsList({
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [source, minScore, sortBy, sortDir]);
+  }, [source, minScore, sortBy, sortDir, jobId]);
 
   const loadMore = async () => {
     setLoadingMore(true);
@@ -156,6 +170,14 @@ export function PainPointsList({
         <span className="text-sm text-muted-foreground">
           {total} pain point{total === 1 ? "" : "s"}
         </span>
+        {jobId && (
+          <Badge variant="outline" className="gap-1">
+            Filtered by job
+            <button onClick={clearJobFilter} aria-label="Clear job filter">
+              <X className="w-3 h-3" />
+            </button>
+          </Badge>
+        )}
       </div>
 
       {loadingFilters ? (
@@ -170,11 +192,11 @@ export function PainPointsList({
             <Activity className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
             <h3 className="text-lg font-semibold mb-2">No pain points yet</h3>
             <p className="text-sm text-muted-foreground mb-4">
-              {source !== "all" || minScore > 0
+              {source !== "all" || minScore > 0 || jobId
                 ? "No pain points match these filters"
                 : "Start by scraping Reddit or Hacker News"}
             </p>
-            {source === "all" && minScore === 0 && (
+            {source === "all" && minScore === 0 && !jobId && (
               <Button asChild>
                 <Link href="/admin/scraping">Start Scraping</Link>
               </Button>

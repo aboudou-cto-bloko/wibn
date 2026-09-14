@@ -87,6 +87,7 @@ export const scrapePlayStoreFunction = inngest.createFunction(
             .values({
               id: nanoid(),
               source: "playstore",
+              jobId,
               sourceId: point.sourceId,
               title: point.title,
               content: point.content,

@@ -108,6 +108,9 @@ export const painPointsQuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(100).default(20),
   minScore: z.coerce.number().int().min(0).max(100).default(0),
   source: sourceTypeSchema.optional(),
+  // Filtre "pain points issus de ce job de scraping précis" — lien depuis
+  // le panneau Recent Jobs de /admin/scraping.
+  jobId: nonEmptyString.optional(),
   sortBy: z.enum(["score", "date"]).default("score"),
   sortDir: sortDirectionSchema,
 });

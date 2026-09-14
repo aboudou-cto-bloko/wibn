@@ -86,6 +86,7 @@ export const scrapeNewsFunction = inngest.createFunction(
             .values({
               id: nanoid(),
               source: "news",
+              jobId,
               sourceId: point.sourceId,
               title: point.title,
               content: point.content,

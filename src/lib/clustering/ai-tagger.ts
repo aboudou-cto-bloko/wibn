@@ -88,6 +88,15 @@ Réponds en JSON EXACTEMENT avec cette structure (même ordre, même nombre d'é
       // points non tagués vers le fallback Jaccard (simple-clustering.ts),
       // pas de perte silencieuse de données.
     }
+
+    // Délai entre lots pour rester sous le quota Groq free tier (8000
+    // tokens/minute) — sans ça, un backlog de plusieurs centaines de pain
+    // points enchaîne les lots trop vite et la majorité finit en 429,
+    // dégradant le tagging vers le fallback Jaccard pour rien (observé le
+    // 2026-09-14 : 4 lots sur 7 rate-limited sur un run de 123 points).
+    if (i + BATCH_SIZE < painPoints.length) {
+      await new Promise((resolve) => setTimeout(resolve, 4000));
+    }
   }
 
   return tagBySourceId;

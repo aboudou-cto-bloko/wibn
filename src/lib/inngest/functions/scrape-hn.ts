@@ -99,6 +99,7 @@ export const scrapeHnFunction = inngest.createFunction(
             .values({
               id: nanoid(),
               source: "hn",
+              jobId,
               sourceId: point.sourceId,
               title: point.title,
               content: point.content,

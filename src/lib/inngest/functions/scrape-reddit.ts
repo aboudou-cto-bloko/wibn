@@ -97,6 +97,7 @@ export const scrapeRedditFunction = inngest.createFunction(
             .values({
               id: nanoid(),
               source: "reddit",
+              jobId,
               sourceId: point.sourceId,
               title: point.title,
               content: point.content,
