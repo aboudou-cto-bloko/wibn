@@ -57,7 +57,7 @@ export default async function PainPointsPage({
             Pain Points
           </h1>
           <p className="text-muted-foreground mt-2">
-            Collected problems and frustrations from Reddit and Hacker News
+            Collected problems and frustrations across every source
           </p>
         </div>
       </div>

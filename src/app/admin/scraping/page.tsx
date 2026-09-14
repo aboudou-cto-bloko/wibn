@@ -385,12 +385,17 @@ export default function ScrapingPage() {
         value={activeSource}
         onValueChange={(v) => setActiveSource(v as ScrapingSource)}
       >
-        <TabsList>
-          <TabsTrigger value="reddit">Reddit</TabsTrigger>
-          <TabsTrigger value="hn">Hacker News</TabsTrigger>
-          <TabsTrigger value="playstore">Play Store</TabsTrigger>
-          <TabsTrigger value="news">Tech News</TabsTrigger>
-        </TabsList>
+        {/* overflow-x-auto : 4 tabs ne rentrent plus sur un écran étroit
+            (~375px) depuis l'ajout de Play Store/Tech News — sans ça, les
+            derniers onglets étaient coupés/impossibles à toucher proprement. */}
+        <div className="overflow-x-auto">
+          <TabsList>
+            <TabsTrigger value="reddit">Reddit</TabsTrigger>
+            <TabsTrigger value="hn">Hacker News</TabsTrigger>
+            <TabsTrigger value="playstore">Play Store</TabsTrigger>
+            <TabsTrigger value="news">Tech News</TabsTrigger>
+          </TabsList>
+        </div>
       </Tabs>
 
       {/* Categories Selection */}
@@ -621,8 +626,8 @@ export default function ScrapingPage() {
         <CardHeader>
           <CardTitle>Pipeline</CardTitle>
           <CardDescription>
-            Étapes suivantes après le scraping — pas besoin de changer
-            d&apos;écran.
+            Traite tous les pain points/clusters en attente (pas seulement
+            le dernier scraping) — sans changer d&apos;écran.
           </CardDescription>
         </CardHeader>
         <CardContent className="flex flex-wrap items-center gap-3">

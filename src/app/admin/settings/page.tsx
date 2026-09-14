@@ -32,13 +32,21 @@ interface SystemSettings {
   aiMaxTokens: number;
 }
 
+interface SystemHealth {
+  database: "connected" | "error";
+  groq: "configured" | "missing";
+  inngest: "dev-mode" | "configured" | "missing";
+}
+
 export default function SettingsPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [settings, setSettings] = useState<SystemSettings | null>(null);
+  const [health, setHealth] = useState<SystemHealth | null>(null);
 
   useEffect(() => {
     loadSettings();
+    loadHealth();
   }, []);
 
   const loadSettings = async () => {
@@ -51,6 +59,15 @@ export default function SettingsPage() {
       toast.error("Failed to load settings");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadHealth = async () => {
+    try {
+      const res = await fetch("/api/admin/health");
+      if (res.ok) setHealth(await res.json());
+    } catch (error) {
+      console.error(error);
     }
   };
 
@@ -78,12 +95,6 @@ export default function SettingsPage() {
     }
   };
 
-  const handleClearCache = async () => {
-    toast.success("Cache cleared", {
-      description: "Settings cache has been invalidated",
-    });
-  };
-
   if (loading || !settings) {
     return (
       <div className="space-y-6">
@@ -109,7 +120,9 @@ export default function SettingsPage() {
       {/* Licence */}
       <LicenseCard />
 
-      {/* System Status */}
+      {/* System Status — vérifié pour de vrai (voir /api/admin/health) :
+          ces 3 badges étaient codés en dur "Connected/Active/Ready" et
+          restaient verts même DB injoignable ou clé Groq absente. */}
       <Card>
         <CardHeader>
           <CardTitle>System Status</CardTitle>
@@ -120,38 +133,66 @@ export default function SettingsPage() {
             <div className="flex items-center justify-between p-4 border rounded-lg">
               <div>
                 <p className="text-sm font-medium">Database</p>
-                <p className="text-xs text-muted-foreground">Vercel Postgres</p>
+                <p className="text-xs text-muted-foreground">PostgreSQL</p>
               </div>
-              <Badge
-                variant="outline"
-                className="bg-green-500/10 text-green-500 border-green-500/20"
-              >
-                Connected
-              </Badge>
+              {health ? (
+                <Badge
+                  variant="outline"
+                  className={
+                    health.database === "connected"
+                      ? "bg-green-500/10 text-green-500 border-green-500/20"
+                      : "bg-destructive/10 text-destructive border-destructive/20"
+                  }
+                >
+                  {health.database === "connected" ? "Connected" : "Unreachable"}
+                </Badge>
+              ) : (
+                <Skeleton className="h-5 w-20" />
+              )}
             </div>
             <div className="flex items-center justify-between p-4 border rounded-lg">
               <div>
                 <p className="text-sm font-medium">Inngest</p>
                 <p className="text-xs text-muted-foreground">Background Jobs</p>
               </div>
-              <Badge
-                variant="outline"
-                className="bg-green-500/10 text-green-500 border-green-500/20"
-              >
-                Active
-              </Badge>
+              {health ? (
+                <Badge
+                  variant="outline"
+                  className={
+                    health.inngest === "missing"
+                      ? "bg-destructive/10 text-destructive border-destructive/20"
+                      : "bg-green-500/10 text-green-500 border-green-500/20"
+                  }
+                >
+                  {health.inngest === "dev-mode"
+                    ? "Dev mode"
+                    : health.inngest === "configured"
+                      ? "Configured"
+                      : "Missing keys"}
+                </Badge>
+              ) : (
+                <Skeleton className="h-5 w-20" />
+              )}
             </div>
             <div className="flex items-center justify-between p-4 border rounded-lg">
               <div>
                 <p className="text-sm font-medium">Groq AI</p>
                 <p className="text-xs text-muted-foreground">Idea Generation</p>
               </div>
-              <Badge
-                variant="outline"
-                className="bg-green-500/10 text-green-500 border-green-500/20"
-              >
-                Ready
-              </Badge>
+              {health ? (
+                <Badge
+                  variant="outline"
+                  className={
+                    health.groq === "configured"
+                      ? "bg-green-500/10 text-green-500 border-green-500/20"
+                      : "bg-destructive/10 text-destructive border-destructive/20"
+                  }
+                >
+                  {health.groq === "configured" ? "Configured" : "Missing key"}
+                </Badge>
+              ) : (
+                <Skeleton className="h-5 w-20" />
+              )}
             </div>
           </div>
         </CardContent>
@@ -166,9 +207,10 @@ export default function SettingsPage() {
         <CardContent className="space-y-4">
           <div className="flex items-center justify-between">
             <div className="space-y-0.5">
-              <Label htmlFor="scraping">Reddit Scraping</Label>
+              <Label htmlFor="scraping">Scraping</Label>
               <p className="text-sm text-muted-foreground">
-                Automatically collect pain points from Reddit
+                Allow scraping jobs (Reddit, Hacker News, Play Store, Tech
+                News) to run
               </p>
             </div>
             <Switch
@@ -249,7 +291,7 @@ export default function SettingsPage() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="maxPosts">Max Posts per Subreddit</Label>
+              <Label htmlFor="maxPosts">Max Items per Target</Label>
               <Input
                 id="maxPosts"
                 type="number"
@@ -264,7 +306,8 @@ export default function SettingsPage() {
                 }
               />
               <p className="text-xs text-muted-foreground">
-                Scrape up to {settings.maxPostsPerSubreddit} posts per subreddit
+                Up to {settings.maxPostsPerSubreddit} items per subreddit,
+                search query, app, or feed
               </p>
             </div>
           </div>
@@ -381,28 +424,6 @@ export default function SettingsPage() {
                 Maximum response length: {settings.aiMaxTokens} tokens
               </p>
             </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Advanced */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Advanced</CardTitle>
-          <CardDescription>Maintenance operations</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="flex items-center justify-between p-4 border rounded-lg border-orange-500/20 bg-orange-500/5">
-            <div>
-              <p className="text-sm font-medium">Clear Settings Cache</p>
-              <p className="text-xs text-muted-foreground">
-                Force reload settings from database
-              </p>
-            </div>
-            <Button variant="outline" size="sm" onClick={handleClearCache}>
-              <RefreshCw className="w-4 h-4 mr-2" />
-              Clear Cache
-            </Button>
           </div>
         </CardContent>
       </Card>

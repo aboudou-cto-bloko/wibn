@@ -236,7 +236,7 @@ export async function generateSaaSIdea(
     keywords: cluster.keywords.slice(0, 5),
   };
 
-  const prompt = `You are a SaaS product strategist analyzing REAL user pain points scraped from Reddit and Hacker News. Based on the following cluster of related problems, generate ONE specific, actionable SaaS product idea.
+  const prompt = `You are a SaaS product strategist analyzing REAL user pain points scraped from Reddit, Hacker News, Google Play reviews, and tech news. Based on the following cluster of related problems, generate ONE specific, actionable SaaS product idea.
 
 CLUSTER OVERVIEW:
 - Name: ${cluster.name}
