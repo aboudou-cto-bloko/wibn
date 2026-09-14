@@ -1,9 +1,55 @@
 import { RawPainPoint, ScoredPainPoint } from "@/types/scraper";
 
 /**
- * Score un pain point de 0 à 100 basé sur plusieurs critères
+ * Barème longueur/mots-clés par plateforme. Les composantes "longueur" et
+ * "mots-clés uniques" du score sont calibrées par défaut sur du texte long
+ * (posts Reddit/HN, souvent 200+ mots) — un avis Play Store d'une phrase
+ * ("l'app a volé mon argent") ne peut mathématiquement pas y atteindre un
+ * bon score même s'il décrit un problème grave : peu de chances d'y
+ * recouper 5 mots-clés distincts, et sa longueur brute plafonne la
+ * composante dédiée. Trouvé le 2026-09-14 en conditions réelles : des avis
+ * 1 étoile clairement critiques scoraient sous le seuil minPainScore
+ * uniquement à cause de leur brièveté, pas de leur pertinence.
+ *
+ * `lengthTarget` : nombre de caractères pour atteindre le score max de
+ * longueur (15 pts). `pointsPerKeyword` : points par mot-clé de
+ * frustration unique trouvé (plafonné à 40 pts au total).
  */
-export function scorePainPoint(painPoint: RawPainPoint): ScoredPainPoint {
+interface PlatformScoringConfig {
+  lengthTarget: number;
+  pointsPerKeyword: number;
+}
+
+const DEFAULT_SCORING_CONFIG: PlatformScoringConfig = {
+  lengthTarget: 500,
+  pointsPerKeyword: 8,
+};
+
+const PLATFORM_SCORING_CONFIG: Record<string, PlatformScoringConfig> = {
+  // Avis Play Store : format court par nature (1-3 phrases), pas un signe
+  // de pain point superficiel comme ce serait le cas sur un forum où le
+  // format encourage à développer.
+  playstore: {
+    lengthTarget: 120,
+    pointsPerKeyword: 15,
+  },
+};
+
+function getScoringConfig(source?: string): PlatformScoringConfig {
+  return (source && PLATFORM_SCORING_CONFIG[source]) || DEFAULT_SCORING_CONFIG;
+}
+
+/**
+ * Score un pain point de 0 à 100 basé sur plusieurs critères. `source`
+ * (reddit/hn/playstore/news...) adapte le barème longueur/mots-clés à la
+ * plateforme — voir PLATFORM_SCORING_CONFIG. Omis = comportement par
+ * défaut (celui d'avant l'introduction de ce barème, inchangé).
+ */
+export function scorePainPoint(
+  painPoint: RawPainPoint,
+  source?: string,
+): ScoredPainPoint {
+  const config = getScoringConfig(source);
   let score = 0;
 
   // 1. Score basé sur l'engagement (30 points max)
@@ -236,12 +282,12 @@ export function scorePainPoint(painPoint: RawPainPoint): ScoredPainPoint {
   });
 
   // Score basé sur le nombre de mots-clés uniques trouvés
-  const keywordScore = Math.min(40, uniqueMatches.size * 8);
+  const keywordScore = Math.min(40, uniqueMatches.size * config.pointsPerKeyword);
   score += keywordScore;
 
   // 3. Longueur du contenu (15 points max)
   const contentLength = painPoint.content.length;
-  const lengthScore = Math.min(15, (contentLength / 500) * 15);
+  const lengthScore = Math.min(15, (contentLength / config.lengthTarget) * 15);
   score += lengthScore;
 
   // 4. Questions et incertitude (15 points)

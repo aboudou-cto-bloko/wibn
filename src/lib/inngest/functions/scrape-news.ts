@@ -52,7 +52,7 @@ export const scrapeNewsFunction = inngest.createFunction(
 
     const scoredPainPoints = await step.run("score-pain-points", async () => {
       return rawPainPoints.map((p) => {
-        const scored = scorePainPoint(p);
+        const scored = scorePainPoint(p, "news");
         return {
           ...scored,
           scrapedAt:

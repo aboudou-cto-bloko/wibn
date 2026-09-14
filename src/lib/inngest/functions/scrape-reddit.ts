@@ -60,7 +60,7 @@ export const scrapeRedditFunction = inngest.createFunction(
     // Étape 3 : Scorer les pain points
     const scoredPainPoints = await step.run("score-pain-points", async () => {
       return rawPainPoints.map((p) => {
-        const scored = scorePainPoint(p);
+        const scored = scorePainPoint(p, "reddit");
         return {
           ...scored,
           scrapedAt:
