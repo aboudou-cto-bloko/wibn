@@ -104,8 +104,10 @@ const DEFAULT_CATEGORIES = [
     isDefault: true,
   },
   // Google Play : "targets" = ids de packages Android (ids vérifiés le
-  // 2026-09-13 via gplay.search). Mix Nigeria/pan-africain/francophone
-  // (Wave est très utilisé au Sénégal/Côte d'Ivoire/Mali/Bénin).
+  // 2026-09-13/14 via gplay.search + un appel reviews() de contrôle). Mix
+  // Nigeria/pan-africain/francophone (Wave, MTN MoMo, Moov Money, Gozem —
+  // ce dernier fondé au Bénin — sont très utilisés au Sénégal/Côte
+  // d'Ivoire/Mali/Bénin/Togo).
   {
     id: nanoid(),
     name: "Play Store: Fintech & mobile money Afrique",
@@ -115,14 +117,39 @@ const DEFAULT_CATEGORIES = [
       "com.moniepoint.personal",
       "com.wave.personal",
       "com.chippercash",
+      "com.palmpay.nile",
+      "mtnft.momo.consumer",
+      "net.moovmoney.moovmoney",
+      "com.mypaga.customer",
+      "com.airtel.africa.selfcare",
     ],
+    isDefault: true,
+  },
+  {
+    id: nanoid(),
+    name: "Play Store: Épargne & investissement Afrique",
+    source: "playstore" as const,
+    targets: ["com.cowrywise.android", "com.piggybankng.piggy"],
     isDefault: true,
   },
   {
     id: nanoid(),
     name: "Play Store: E-commerce Afrique",
     source: "playstore" as const,
-    targets: ["com.jumia.android"],
+    targets: ["com.jumia.android", "com.konga.androida", "ng.jiji.app"],
+    isDefault: true,
+  },
+  {
+    id: nanoid(),
+    name: "Play Store: Transport & livraison Afrique",
+    source: "playstore" as const,
+    targets: [
+      "ee.mtakso.client",
+      "com.yandex.yango",
+      "com.gozem",
+      "com.chowdeck.com",
+      "com.glovo",
+    ],
     isDefault: true,
   },
   // Presse tech : "targets" = URLs de flux RSS (feeds WordPress standard).
