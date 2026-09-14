@@ -77,6 +77,10 @@ export interface ClusterCardProps {
 }
 
 export type ScrapingSource = "reddit" | "hn" | "playstore" | "news";
+// "ideas"/"clustering" ne sont pas des sources de scraping (pas de
+// catégorie, pas de tab dédié) mais réutilisent scraping_jobs pour le
+// suivi de statut — voir JobSource ci-dessous, distinct de ScrapingSource.
+export type JobSource = ScrapingSource | "ideas" | "clustering";
 
 export interface ScrapingCategory {
   id: string;
@@ -95,8 +99,11 @@ export interface ScrapingResponse {
 
 export interface ScrapingJobItem {
   id: string;
-  source: ScrapingSource;
+  source: JobSource;
   status: "pending" | "running" | "completed" | "failed";
+  // Nom générique côté DB (table scraping_jobs, historique) — représente
+  // "pain points" pour un job de scraping, "idées générées" pour un job
+  // "ideas", "clusters" pour un job "clustering".
   painPointsFound: number | null;
   errorMessage: string | null;
   startedAt: string | null;
@@ -133,6 +140,7 @@ export interface PainPointItem {
   painScore: number | null;
   sourceScore: number | null;
   clusterId: string | null;
+  jobId: string | null;
   scrapedAt: Date;
   metadata: Record<string, unknown> | null;
 }

@@ -1,9 +1,9 @@
 import { inngest } from "@/lib/inngest/client";
 import { db } from "@/lib/db";
-import { clusters, ideas, painPoints } from "@/lib/db/schema";
+import { clusters, ideas, painPoints, scrapingJobs } from "@/lib/db/schema";
 import { generateSaaSIdea, ExistingIdeaRef } from "@/lib/ai/idea-generator";
 import { nanoid } from "nanoid";
-import { desc, eq, isNull } from "drizzle-orm";
+import { and, desc, eq, isNull } from "drizzle-orm";
 import { getSettings } from "@/lib/settings";
 
 // Configuration
@@ -18,21 +18,70 @@ export const generateIdeasFunction = inngest.createFunction(
   },
   { event: "ideas/generate" },
   async ({ event, step }) => {
+    // clusterId optionnel : cible un cluster précis (bouton "Générer une
+    // idée pour ce cluster" sur /admin/clusters/[id]) au lieu du batch
+    // global des BATCH_SIZE clusters sans idée les mieux notés.
+    const targetClusterId: string | undefined = event.data?.clusterId;
+    // Fourni par l'appelant (POST /api/admin/ideas) pour que l'UI puisse
+    // suivre ce job précis dès le déclenchement — même convention que les
+    // fonctions scrape-*.ts (voir GET /api/admin/jobs?id=).
+    const jobId: string = event.data?.jobId || nanoid();
+
+    await step.run("create-job", async () => {
+      await db.insert(scrapingJobs).values({
+        id: jobId,
+        source: "ideas",
+        status: "running",
+        config: targetClusterId ? { clusterId: targetClusterId } : {},
+        startedAt: new Date(),
+      });
+    });
+
+    // Marque le job terminé (succès ou échec) sur chacun des points de
+    // sortie de la fonction — pour que le polling côté UI (pollJobUntilDone)
+    // ne reste jamais bloqué sur "running" quel que soit le chemin emprunté.
+    const completeJob = async (count: number, errorMessage?: string) => {
+      await db
+        .update(scrapingJobs)
+        .set({
+          status: errorMessage ? "failed" : "completed",
+          painPointsFound: count,
+          errorMessage: errorMessage || null,
+          completedAt: new Date(),
+        })
+        .where(eq(scrapingJobs.id, jobId));
+    };
+
+    // Filet de sécurité : si une étape lève une erreur non anticipée
+    // (au-delà des try/catch déjà en place par cluster/par idée), le job
+    // passe quand même à "failed" au lieu de rester bloqué en "running"
+    // indéfiniment — bug concret rencontré avec le scraper Play Store
+    // avant d'avoir ce genre de garde (voir sanitize.ts).
+    try {
+      return await runGeneration();
+    } catch (error) {
+      await completeJob(
+        0,
+        error instanceof Error ? error.message : "Unknown error",
+      ).catch(() => {});
+      throw error;
+    }
+
+    async function runGeneration() {
     const settings = await step.run("load-settings", async () => {
       return await getSettings();
     });
 
     if (!settings.ideaGenerationEnabled) {
+      await step.run("complete-job-disabled", async () =>
+        completeJob(0, "Idea generation is disabled in settings"),
+      );
       return {
+        jobId,
         message: "Idea generation is disabled in settings",
         ideasGenerated: 0,
       };
     }
-
-    // clusterId optionnel : cible un cluster précis (bouton "Générer une
-    // idée pour ce cluster" sur /admin/clusters/[id]) au lieu du batch
-    // global des BATCH_SIZE clusters sans idée les mieux notés.
-    const targetClusterId: string | undefined = event.data?.clusterId;
 
     // Étape 1: Récupère le(s) cluster(s) à traiter
     const clustersToProcess = await step.run("fetch-clusters", async () => {
@@ -49,8 +98,20 @@ export const generateIdeasFunction = inngest.createFunction(
           .from(clusters)
           .leftJoin(ideas, eq(clusters.id, ideas.clusterId));
 
+        // isNull(ideas.clusterId) s'applique aussi bien au batch global qu'à
+        // un clusterId ciblé : sans ça, cibler un cluster qui a DÉJÀ une
+        // idée (bouton cliqué deux fois, page restée ouverte après qu'une
+        // autre requête l'a généré, etc.) regénérait une idée à partir des
+        // mêmes pain points — un doublon silencieux, jamais détecté par
+        // checkDuplicate() puisqu'il compare le texte de l'idée, pas les
+        // pain points sources. Ici on bloque la régénération à la racine :
+        // un cluster qui a déjà une idée n'est plus jamais retraité, point.
         const allClusters = targetClusterId
-          ? await query.where(eq(clusters.id, targetClusterId)).limit(1)
+          ? await query
+              .where(
+                and(eq(clusters.id, targetClusterId), isNull(ideas.clusterId)),
+              )
+              .limit(1)
           : await query
               .where(isNull(ideas.clusterId))
               .orderBy(desc(clusters.avgPainScore))
@@ -117,10 +178,15 @@ export const generateIdeasFunction = inngest.createFunction(
     });
 
     if (clustersToProcess.length === 0) {
+      const message = targetClusterId
+        ? "This cluster already has an idea — not regenerating from the same pain points"
+        : "All clusters already have ideas";
+      await step.run("complete-job-empty", async () => completeJob(0));
       return {
+        jobId,
         ideasGenerated: 0,
         clustersProcessed: 0,
-        message: "All clusters already have ideas",
+        message,
       };
     }
 
@@ -210,7 +276,11 @@ export const generateIdeasFunction = inngest.createFunction(
     });
 
     if (generatedIdeas.length === 0) {
+      await step.run("complete-job-none-generated", async () =>
+        completeJob(0),
+      );
       return {
+        jobId,
         ideasGenerated: 0,
         clustersProcessed: clustersToProcess.length,
         message: "No ideas were successfully generated",
@@ -248,7 +318,10 @@ export const generateIdeasFunction = inngest.createFunction(
       return successCount;
     });
 
+    await step.run("complete-job", async () => completeJob(savedCount));
+
     return {
+      jobId,
       ideasGenerated: savedCount,
       clustersProcessed: clustersToProcess.length,
       settingsUsed: {
@@ -257,6 +330,7 @@ export const generateIdeasFunction = inngest.createFunction(
       },
       successRate: `${Math.round((savedCount / clustersToProcess.length) * 100)}%`,
     };
+    }
   },
 );
 

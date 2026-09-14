@@ -1,6 +1,7 @@
 import { inngest } from "@/lib/inngest/client";
 import { db } from "@/lib/db";
 import { ideas } from "@/lib/db/schema";
+import { nanoid } from "nanoid";
 import { asc, desc } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { withAdmin } from "@/lib/auth/api-middleware";
@@ -58,12 +59,17 @@ export const POST = withAdmin(async (request) => {
     const clusterId =
       typeof body?.clusterId === "string" ? body.clusterId : undefined;
 
+    // Généré ici (pas dans la fonction Inngest) pour que l'UI puisse suivre
+    // ce job précis dès le déclenchement (GET /api/admin/jobs?id=) — même
+    // convention que /api/admin/scrape.
+    const jobId = nanoid();
+
     await inngest.send({
       name: "ideas/generate",
-      data: clusterId ? { clusterId } : {},
+      data: clusterId ? { jobId, clusterId } : { jobId },
     });
 
-    return NextResponse.json({ message: "Idea generation job started" });
+    return NextResponse.json({ message: "Idea generation job started", jobId });
   } catch (error) {
     console.error("Error starting idea generation job:", error);
     return NextResponse.json(

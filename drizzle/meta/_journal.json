@@ -64,6 +64,20 @@
       "when": 1789342751449,
       "tag": "0008_tough_maggott",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1789345559685,
+      "tag": "0009_lovely_jean_grey",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1789346675293,
+      "tag": "0010_silky_longshot",
+      "breakpoints": true
     }
   ]
 }

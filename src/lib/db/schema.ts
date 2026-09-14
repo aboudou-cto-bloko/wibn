@@ -20,6 +20,11 @@ export const sourceEnum = pgEnum("source", [
   "fixthis",
   "playstore",
   "news",
+  // "ideas"/"clustering" : pas des sources de scraping, mais réutilisent le
+  // même enum + la même table scraping_jobs pour tracker ces jobs aussi
+  // (statut, historique) — voir generate-ideas.ts/generate-clusters.ts.
+  "ideas",
+  "clustering",
 ]);
 export const jobStatusEnum = pgEnum("job_status", [
   "pending",
@@ -50,6 +55,9 @@ export type ScrapingJobConfig = {
   maxRating?: number;
   // Presse tech (source "news") : URLs de flux RSS.
   feeds?: string[];
+  // Génération d'idées (source "ideas") : cible un cluster précis au lieu
+  // du batch global.
+  clusterId?: string;
   [key: string]: unknown;
 };
 
@@ -177,6 +185,12 @@ export const painPoints = pgTable(
     clusterId: text("cluster_id"),
     embedding: jsonb("embedding").$type<number[]>(),
 
+    // Job de scraping (scraping_jobs.id) qui a produit ce pain point —
+    // nullable : pas de FK stricte (les jobs ne sont pas dans une table
+    // dédiée typée séparément, cf. scraping_jobs), juste une référence pour
+    // filtrer "quels pain points vient ce run précis" côté UI.
+    jobId: text("job_id"),
+
     scrapedAt: timestamp("scraped_at").defaultNow().notNull(),
   },
   (table) => {
@@ -184,6 +198,7 @@ export const painPoints = pgTable(
       sourceIdx: index("pain_points_source_idx").on(table.source),
       scoreIdx: index("pain_points_score_idx").on(table.painScore),
       clusterIdx: index("pain_points_cluster_idx").on(table.clusterId),
+      jobIdx: index("pain_points_job_idx").on(table.jobId),
     };
   },
 );

@@ -42,14 +42,33 @@ import { GenerateIdeasButton } from "@/components/admin/generate-ideas-button";
 import type {
   ScrapingCategory,
   ScrapingSource,
+  JobSource,
   ScrapingJobItem,
 } from "@/types/dashboard";
 
-const SOURCE_LABELS: Record<ScrapingSource, string> = {
+const SOURCE_LABELS: Record<JobSource, string> = {
   reddit: "Reddit",
   hn: "Hacker News",
   playstore: "Play Store",
   news: "Tech News",
+  ideas: "Idea Generation",
+  clustering: "Clustering",
+};
+
+// Sources qui produisent des pain_points (avec un jobId dessus) — seules
+// celles-là ont un lien "voir les résultats" cliquable dans Recent Jobs ;
+// ideas/clustering ne créent pas de pain_points.
+const SCRAPE_SOURCES = new Set<JobSource>(["reddit", "hn", "playstore", "news"]);
+
+// job.painPointsFound est un compteur générique côté DB — "pain points"
+// pour un scraping, "idées" pour ideas, "clusters" pour clustering.
+const RESULT_UNIT_LABELS: Record<JobSource, string> = {
+  reddit: "pain points",
+  hn: "pain points",
+  playstore: "pain points",
+  news: "pain points",
+  ideas: "ideas",
+  clustering: "clusters",
 };
 
 const SOURCE_COPY: Record<
@@ -656,11 +675,21 @@ export default function ScrapingPage() {
                     </span>
                   </div>
                   <div className="text-right shrink-0">
-                    {job.status === "completed" && (
-                      <span className="font-medium">
-                        {job.painPointsFound ?? 0} pain points
-                      </span>
-                    )}
+                    {job.status === "completed" &&
+                      (SCRAPE_SOURCES.has(job.source) &&
+                      (job.painPointsFound ?? 0) > 0 ? (
+                        <Link
+                          href={`/admin/pain-points?jobId=${job.id}`}
+                          className="font-medium underline-offset-2 hover:underline"
+                        >
+                          {job.painPointsFound} {RESULT_UNIT_LABELS[job.source]}
+                        </Link>
+                      ) : (
+                        <span className="font-medium">
+                          {job.painPointsFound ?? 0}{" "}
+                          {RESULT_UNIT_LABELS[job.source]}
+                        </span>
+                      ))}
                     {job.status === "failed" && job.errorMessage && (
                       <span className="text-destructive text-xs">
                         {job.errorMessage}

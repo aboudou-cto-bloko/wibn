@@ -5,11 +5,13 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Sparkles, Loader2 } from "lucide-react";
 import { toast } from "sonner";
+import { pollJobUntilDone } from "@/lib/admin/poll-job";
 
 /**
- * Déclenche POST /api/admin/ideas (job Inngest "ideas/generate", async —
- * traite un batch de clusters sans idée). Remplace les boutons "Generate
- * More"/"Generate Ideas" qui n'avaient jusqu'ici aucun handler.
+ * Déclenche POST /api/admin/ideas (job Inngest "ideas/generate", tracké
+ * dans scraping_jobs comme les jobs de scraping — visible dans le panneau
+ * "Recent Jobs" de /admin/scraping) puis poll son statut réel au lieu d'un
+ * refresh à l'aveugle après un délai fixe.
  */
 export function GenerateIdeasButton({
   variant = "default",
@@ -26,7 +28,7 @@ export function GenerateIdeasButton({
 
   const handleClick = async () => {
     setLoading(true);
-    const toastId = toast.loading("Génération d'idées lancée...");
+    const toastId = toast.loading("Génération d'idées en cours...");
 
     try {
       const res = await fetch("/api/admin/ideas", {
@@ -38,15 +40,24 @@ export function GenerateIdeasButton({
 
       if (!res.ok) throw new Error(data.error || "Échec du déclenchement");
 
-      toast.success("Génération en cours", {
-        id: toastId,
-        description:
-          "Le job tourne en arrière-plan (quelques dizaines de secondes) — la liste se rafraîchira automatiquement.",
-      });
+      // Timeout généreux : un batch de 5 clusters peut enchaîner ~3 appels
+      // Groq chacun (draft + dédup + critique) + un délai de 8s entre
+      // clusters — largement plus long qu'un job de scraping.
+      const job = await pollJobUntilDone(data.jobId, { timeoutMs: 300000 });
 
-      // Le job est async (Inngest) — un refresh immédiat ne verrait rien de
-      // nouveau. On retente après un délai raisonnable pour la plupart des cas.
-      setTimeout(() => router.refresh(), 8000);
+      if (job.status === "completed") {
+        toast.success("Génération terminée", {
+          id: toastId,
+          description: `${job.painPointsFound ?? 0} idée(s) générée(s).`,
+        });
+      } else {
+        toast.error("Génération échouée", {
+          id: toastId,
+          description: job.errorMessage || "Erreur inconnue",
+        });
+      }
+
+      router.refresh();
     } catch (error) {
       toast.error("Échec du déclenchement", {
         id: toastId,

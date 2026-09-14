@@ -5,11 +5,12 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Layers, Loader2 } from "lucide-react";
 import { toast } from "sonner";
+import { pollJobUntilDone } from "@/lib/admin/poll-job";
 
 /**
  * Déclenche POST /api/admin/clusters (job Inngest "clustering/generate",
- * async). Remplace le bouton "Generate Clusters" qui n'avait jusqu'ici
- * aucun handler.
+ * tracké dans scraping_jobs comme les jobs de scraping) puis poll son
+ * statut réel au lieu d'un refresh à l'aveugle après un délai fixe.
  */
 export function GenerateClustersButton() {
   const [loading, setLoading] = useState(false);
@@ -17,7 +18,7 @@ export function GenerateClustersButton() {
 
   const handleClick = async () => {
     setLoading(true);
-    const toastId = toast.loading("Clustering lancé...");
+    const toastId = toast.loading("Clustering en cours...");
 
     try {
       const res = await fetch("/api/admin/clusters", { method: "POST" });
@@ -25,13 +26,21 @@ export function GenerateClustersButton() {
 
       if (!res.ok) throw new Error(data.error || "Échec du déclenchement");
 
-      toast.success("Clustering en cours", {
-        id: toastId,
-        description:
-          "Le job tourne en arrière-plan — la liste se rafraîchira automatiquement.",
-      });
+      const job = await pollJobUntilDone(data.jobId);
 
-      setTimeout(() => router.refresh(), 8000);
+      if (job.status === "completed") {
+        toast.success("Clustering terminé", {
+          id: toastId,
+          description: `${job.painPointsFound ?? 0} cluster(s) généré(s).`,
+        });
+      } else {
+        toast.error("Clustering échoué", {
+          id: toastId,
+          description: job.errorMessage || "Erreur inconnue",
+        });
+      }
+
+      router.refresh();
     } catch (error) {
       toast.error("Échec du déclenchement", {
         id: toastId,

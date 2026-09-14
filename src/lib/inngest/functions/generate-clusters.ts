@@ -1,6 +1,6 @@
 import { inngest } from "@/lib/inngest/client";
 import { db } from "@/lib/db";
-import { painPoints, clusters } from "@/lib/db/schema";
+import { painPoints, clusters, scrapingJobs } from "@/lib/db/schema";
 import {
   clusterPainPoints,
   evaluateClustering,
@@ -18,13 +18,58 @@ export const generateClustersFunction = inngest.createFunction(
     name: "Generate Pain Point Clusters",
   },
   { event: "clustering/generate" },
-  async ({ step }) => {
+  async ({ event, step }) => {
+    // Fourni par l'appelant (POST /api/admin/clusters) pour que l'UI
+    // puisse suivre ce job précis dès le déclenchement — même convention
+    // que scrape-*.ts et generate-ideas.ts.
+    const jobId: string = event.data?.jobId || nanoid();
+
+    await step.run("create-job", async () => {
+      await db.insert(scrapingJobs).values({
+        id: jobId,
+        source: "clustering",
+        status: "running",
+        config: {},
+        startedAt: new Date(),
+      });
+    });
+
+    const completeJob = async (count: number, errorMessage?: string) => {
+      await db
+        .update(scrapingJobs)
+        .set({
+          status: errorMessage ? "failed" : "completed",
+          painPointsFound: count,
+          errorMessage: errorMessage || null,
+          completedAt: new Date(),
+        })
+        .where(eq(scrapingJobs.id, jobId));
+    };
+
+    // Filet de sécurité : voir generate-ideas.ts pour le pourquoi (job
+    // resté bloqué en "running" sans ce garde-fou, bug rencontré avant sur
+    // le scraper Play Store).
+    try {
+      return await runClustering();
+    } catch (error) {
+      await completeJob(
+        0,
+        error instanceof Error ? error.message : "Unknown error",
+      ).catch(() => {});
+      throw error;
+    }
+
+    async function runClustering() {
     const settings = await step.run("load-settings", async () => {
       return await getSettings();
     });
 
     if (!settings.clusteringEnabled) {
+      await step.run("complete-job-disabled", async () =>
+        completeJob(0, "Clustering is disabled in settings"),
+      );
       return {
+        jobId,
         message: "Clustering is disabled in settings",
         clustersGenerated: 0,
       };
@@ -53,7 +98,9 @@ export const generateClustersFunction = inngest.createFunction(
     });
 
     if (unclusteredPoints.length === 0) {
+      await step.run("complete-job-empty", async () => completeJob(0));
       return {
+        jobId,
         clustersGenerated: 0,
         totalPainPoints: 0,
         message: "No unclustered pain points found",
@@ -223,7 +270,10 @@ export const generateClustersFunction = inngest.createFunction(
       return generatedClusters.length;
     });
 
+    await step.run("complete-job", async () => completeJob(savedCount));
+
     return {
+      jobId,
       clustersGenerated: savedCount,
       totalPainPoints: unclusteredPoints.length,
       settingsUsed: {
@@ -238,5 +288,6 @@ export const generateClustersFunction = inngest.createFunction(
         keywords: c.keywords,
       })),
     };
+    }
   },
 );
