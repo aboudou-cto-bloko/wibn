@@ -20,7 +20,12 @@ import {
 import { StatCard, StatCardSkeleton } from "@/components/admin/stat-card";
 import type { DashboardStats } from "@/types/dashboard";
 
-const SOURCE_LABELS: Record<string, string> = { reddit: "Reddit", hn: "HN" };
+const SOURCE_LABELS: Record<string, string> = {
+  reddit: "Reddit",
+  hn: "HN",
+  playstore: "Play Store",
+  news: "News",
+};
 
 async function getStats(): Promise<DashboardStats> {
   const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3001";

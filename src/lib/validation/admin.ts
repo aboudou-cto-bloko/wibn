@@ -52,7 +52,7 @@ export function parseQuery<T extends z.ZodTypeAny>(
 
 const nonEmptyString = z.string().trim().min(1);
 const targetList = z.array(nonEmptyString).min(1);
-export const sourceTypeSchema = z.enum(["reddit", "hn"]);
+export const sourceTypeSchema = z.enum(["reddit", "hn", "playstore", "news"]);
 
 export const categoryCreateSchema = z.object({
   name: nonEmptyString,

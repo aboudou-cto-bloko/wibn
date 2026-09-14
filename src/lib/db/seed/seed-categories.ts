@@ -103,6 +103,40 @@ const DEFAULT_CATEGORIES = [
     targets: ["tired of paying for", "wish there was a tool"],
     isDefault: true,
   },
+  // Google Play : "targets" = ids de packages Android (ids vérifiés le
+  // 2026-09-13 via gplay.search). Mix Nigeria/pan-africain/francophone
+  // (Wave est très utilisé au Sénégal/Côte d'Ivoire/Mali/Bénin).
+  {
+    id: nanoid(),
+    name: "Play Store: Fintech & mobile money Afrique",
+    source: "playstore" as const,
+    targets: [
+      "com.kudabank.app",
+      "com.moniepoint.personal",
+      "com.wave.personal",
+      "com.chippercash",
+    ],
+    isDefault: true,
+  },
+  {
+    id: nanoid(),
+    name: "Play Store: E-commerce Afrique",
+    source: "playstore" as const,
+    targets: ["com.jumia.android"],
+    isDefault: true,
+  },
+  // Presse tech : "targets" = URLs de flux RSS (feeds WordPress standard).
+  {
+    id: nanoid(),
+    name: "News: Presse tech africaine",
+    source: "news" as const,
+    targets: [
+      "https://techcabal.com/feed",
+      "https://techpoint.africa/feed",
+      "https://disruptafrica.com/feed",
+    ],
+    isDefault: true,
+  },
 ];
 
 export async function seedCategories() {

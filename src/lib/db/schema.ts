@@ -18,6 +18,8 @@ export const sourceEnum = pgEnum("source", [
   "twitter",
   "hn",
   "fixthis",
+  "playstore",
+  "news",
 ]);
 export const jobStatusEnum = pgEnum("job_status", [
   "pending",
@@ -42,6 +44,12 @@ export type ScrapingJobConfig = {
   // Hacker News (source "hn") : requêtes de recherche Algolia + seuil de points.
   queries?: string[];
   minPoints?: number;
+  // Google Play (source "playstore") : ids de packages Android + note max
+  // retenue (avis critiques uniquement).
+  appIds?: string[];
+  maxRating?: number;
+  // Presse tech (source "news") : URLs de flux RSS.
+  feeds?: string[];
   [key: string]: unknown;
 };
 

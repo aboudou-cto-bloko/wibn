@@ -76,7 +76,7 @@ export interface ClusterCardProps {
   cluster: ClusterWithStats;
 }
 
-export type ScrapingSource = "reddit" | "hn";
+export type ScrapingSource = "reddit" | "hn" | "playstore" | "news";
 
 export interface ScrapingCategory {
   id: string;

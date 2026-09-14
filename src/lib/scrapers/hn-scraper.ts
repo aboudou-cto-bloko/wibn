@@ -1,4 +1,5 @@
 import { RawPainPoint } from "@/types/scraper";
+import { stripLoneSurrogates } from "./sanitize";
 
 export interface HnScraperConfig {
   /** Requêtes de recherche (pas de subreddits — HN n'a pas de communautés nommées). */
@@ -96,8 +97,10 @@ export async function scrapeHackerNews(
 
         allPainPoints.push({
           sourceId: `hn_${hit.objectID}`,
-          title: hit.title,
-          content,
+          // stripLoneSurrogates : voir sanitize.ts (défensif, bug rencontré
+          // sur le scraper Play Store).
+          title: stripLoneSurrogates(hit.title),
+          content: stripLoneSurrogates(content),
           url:
             hit.url || `https://news.ycombinator.com/item?id=${hit.objectID}`,
           author: hit.author,

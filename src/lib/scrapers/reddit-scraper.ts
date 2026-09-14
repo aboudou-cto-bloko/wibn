@@ -1,4 +1,5 @@
 import { RawPainPoint } from "@/types/scraper";
+import { stripLoneSurrogates } from "./sanitize";
 
 export interface RedditScraperConfig {
   subreddits: string[];
@@ -123,8 +124,12 @@ export async function scrapeReddit(
 
         allPainPoints.push({
           sourceId: `reddit_${idMatch[1]}`,
-          title: decodeEntities(titleMatch[1]),
-          content: selftext,
+          // stripLoneSurrogates : défensif contre les surrogates UTF-16
+          // isolés qui font planter silencieusement la sérialisation d'un
+          // step Inngest — voir sanitize.ts pour le bug concret rencontré
+          // sur le scraper Play Store.
+          title: stripLoneSurrogates(decodeEntities(titleMatch[1])),
+          content: stripLoneSurrogates(selftext),
           url: linkMatch ? linkMatch[1] : "",
           author,
           score: NEUTRAL_SCORE,

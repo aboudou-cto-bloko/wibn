@@ -210,13 +210,18 @@ export async function generateSaaSIdea(
     .slice(0, 5)
     .map((p, idx) => {
       const snippet = p.content.substring(0, 250).replace(/\n/g, " ");
-      // subreddit (reddit) ou tags (hn) selon la source — voir
-      // src/lib/db/schema.ts:PainPointMetadata.
+      // subreddit (reddit), tags (hn), appId+note (playstore) ou feed
+      // (news) selon la source — voir src/lib/db/schema.ts:PainPointMetadata.
       const context =
         (p.metadata.subreddit as string) ||
         (Array.isArray(p.metadata.tags)
           ? (p.metadata.tags as string[]).join(", ")
-          : "unknown");
+          : undefined) ||
+        (p.metadata.appId
+          ? `${p.metadata.appId} (${p.metadata.rating}★ review)`
+          : undefined) ||
+        (p.metadata.feed as string) ||
+        "unknown";
       return `${idx + 1}. "${p.title}" (Score: ${p.painScore}/100)
    Context: ${snippet}...
    Source: ${context}`;

@@ -5,7 +5,6 @@ import Link from "next/link";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Select,
   SelectContent,
@@ -38,7 +37,9 @@ export function PainPointsList({
   const [total, setTotal] = useState(initialData.pagination.total);
   const [loadingMore, setLoadingMore] = useState(false);
   const [loadingFilters, setLoadingFilters] = useState(false);
-  const [source, setSource] = useState<"all" | "reddit" | "hn">("all");
+  const [source, setSource] = useState<
+    "all" | "reddit" | "hn" | "playstore" | "news"
+  >("all");
   const [minScore, setMinScore] = useState(0);
   const [sortBy, setSortBy] = useState<"score" | "date">("score");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
@@ -104,16 +105,18 @@ export function PainPointsList({
     <div className="space-y-4">
       {/* Filtres */}
       <div className="flex flex-wrap items-center gap-4">
-        <Tabs
-          value={source}
-          onValueChange={(v) => setSource(v as typeof source)}
-        >
-          <TabsList>
-            <TabsTrigger value="all">All sources</TabsTrigger>
-            <TabsTrigger value="reddit">Reddit</TabsTrigger>
-            <TabsTrigger value="hn">Hacker News</TabsTrigger>
-          </TabsList>
-        </Tabs>
+        <Select value={source} onValueChange={(v) => setSource(v as typeof source)}>
+          <SelectTrigger size="sm" className="w-[160px]">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All sources</SelectItem>
+            <SelectItem value="reddit">Reddit</SelectItem>
+            <SelectItem value="hn">Hacker News</SelectItem>
+            <SelectItem value="playstore">Play Store</SelectItem>
+            <SelectItem value="news">Tech News</SelectItem>
+          </SelectContent>
+        </Select>
         <div className="flex items-center gap-2">
           <label htmlFor="minScore" className="text-sm text-muted-foreground">
             Min score

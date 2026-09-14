@@ -48,6 +48,8 @@ import type {
 const SOURCE_LABELS: Record<ScrapingSource, string> = {
   reddit: "Reddit",
   hn: "Hacker News",
+  playstore: "Play Store",
+  news: "Tech News",
 };
 
 const SOURCE_COPY: Record<
@@ -63,6 +65,18 @@ const SOURCE_COPY: Record<
     description: "Collect pain points from Hacker News discussions",
     targetLabel: "Search queries",
     targetPlaceholder: "e.g. frustrated with invoicing",
+  },
+  playstore: {
+    description:
+      "Collect low-rating app reviews (real user complaints) from Google Play",
+    targetLabel: "App package IDs",
+    targetPlaceholder: "e.g. com.kudabank.app",
+  },
+  news: {
+    description:
+      "Collect market signals from tech news RSS feeds (editorial, not raw complaints)",
+    targetLabel: "RSS feed URLs",
+    targetPlaceholder: "e.g. https://techcabal.com/feed",
   },
 };
 
@@ -355,6 +369,8 @@ export default function ScrapingPage() {
         <TabsList>
           <TabsTrigger value="reddit">Reddit</TabsTrigger>
           <TabsTrigger value="hn">Hacker News</TabsTrigger>
+          <TabsTrigger value="playstore">Play Store</TabsTrigger>
+          <TabsTrigger value="news">Tech News</TabsTrigger>
         </TabsList>
       </Tabs>
 

@@ -4,6 +4,7 @@ allowBuilds:
   '@prisma/client': false
   better-sqlite3: false
   bufferutil: false
+  es5-ext: true
   esbuild: false
   protobufjs: false
   sharp: false

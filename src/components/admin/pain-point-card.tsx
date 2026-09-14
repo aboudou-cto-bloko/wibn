@@ -9,6 +9,8 @@ import type { PainPointCardProps } from "@/types/dashboard";
 const SOURCE_LABELS: Record<string, string> = {
   reddit: "Reddit",
   hn: "HN",
+  playstore: "Play Store",
+  news: "News",
 };
 
 export function PainPointCard({ painPoint }: PainPointCardProps) {

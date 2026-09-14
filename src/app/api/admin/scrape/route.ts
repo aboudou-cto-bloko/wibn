@@ -17,7 +17,7 @@ export const POST = withAdmin(async (request) => {
     // categories = ids de scrapingCategories (voir /admin/scraping) — la
     // source est déduite de la colonne `source` des catégories elles-mêmes,
     // pas déclarée séparément par le client.
-    let source: "reddit" | "hn";
+    let source: "reddit" | "hn" | "playstore" | "news";
     let finalTargets: string[];
 
     if (categories) {
@@ -47,7 +47,7 @@ export const POST = withAdmin(async (request) => {
         );
       }
 
-      source = rows[0].source as "reddit" | "hn";
+      source = rows[0].source as "reddit" | "hn" | "playstore" | "news";
       finalTargets = [...new Set(rows.flatMap((r) => r.targets))];
     } else if (subreddits) {
       source = "reddit";
@@ -73,10 +73,20 @@ export const POST = withAdmin(async (request) => {
         name: "scraping/reddit.trigger",
         data: { jobId, subreddits: finalTargets, timeframe: "week" },
       });
-    } else {
+    } else if (source === "hn") {
       await inngest.send({
         name: "scraping/hn.trigger",
         data: { jobId, queries: finalTargets, minPoints: 20 },
+      });
+    } else if (source === "playstore") {
+      await inngest.send({
+        name: "scraping/playstore.trigger",
+        data: { jobId, appIds: finalTargets, maxRating: 2 },
+      });
+    } else {
+      await inngest.send({
+        name: "scraping/news.trigger",
+        data: { jobId, feeds: finalTargets },
       });
     }
 
